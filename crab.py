@@ -7,7 +7,6 @@ import copy
 import time
 time.sleep(0.05)
 
-
 class Inst:
 
     def __init__(self, inst='', contents=[], lineno=0, line='', **kwargs):
@@ -25,6 +24,8 @@ class Crab:
 
 
     def __init__(self):
+
+        #Constants
         self.FILE_NAME = ''
         self.FILE_DIR = ''
         self.INDENTATION = 4
@@ -52,6 +53,9 @@ class Crab:
             'len': self.do_len,
             'pass': self.do_pass
             }
+        
+        #Variables
+        self.vars = dict()
 
 
     def error(self, errortype, msg, line, lineno):
@@ -84,20 +88,28 @@ class Crab:
             if type(result) == tuple and result[0] == 'ERROR':
                 return result[1]
             else:
-                print(result)
+                print(result, end='')
         return ''
 
 
     def handle_inst(self, instobj, lines, index):
         if self.validate_cmd(instobj.inst):
-
-            for i, arg in enumerate(instobj.args.values()):
+            for key, arg in list(instobj.args.items()):
                 if '{' in arg:
-                    parsed_line_instobj = self.parse_lines([instobj.line])[0]
-                    print(parsed_line_instobj)
-                    selfcall_outcome = self.handle_inst(parsed_line_instobj, False, False)
-                else:
-                    print(arg)
+                    embed = self.find_embed(arg)
+
+                    for tup in reversed(embed):
+                        new_inst = tup[0][1:len(tup[0])-1] if tup[0].startswith('{') and tup[0].endswith('}') else tup[0][1:] if tup[0].startswith('{') else tup[0][:len(tup[0])-1]
+
+                        parsed_line_instobj = self.parse_lines([new_inst], lineno='%s, embedded in \'%s\'' % (instobj.lineno, instobj.line))[0]
+                        selfcall_outcome = self.handle_inst(parsed_line_instobj, False, False)
+
+                        if type(selfcall_outcome) == tuple:
+                            return selfcall_outcome
+                        else:
+                            instobj.args[key] = list(instobj.args[key])
+                            instobj.args[key][tup[1]: tup[2]] = list(str(selfcall_outcome))
+                            instobj.args[key] = ''.join(instobj.args[key])
 
             return self.COMMANDS[instobj.inst](instobj, lines, index)
         else:
@@ -130,7 +142,7 @@ class Crab:
         return result   
 
 
-    def parse_lines(self, lines):
+    def parse_lines(self, lines, lineno=False):
         lines[len(lines)-1] += '\n'
         result = []
         embeds = quotes = 0
@@ -148,7 +160,7 @@ class Crab:
             else:
                 if nline[0] == ' ': return self.error('IndentationError', 'Invalid indentation', lines[i], i+1)
 
-            inst = Inst(lineno=i+1)
+            inst = Inst(lineno = (i+1) if not lineno else lineno)
             
             if self.check_if_indented(line):
                 line = line[self.INDENTATION:]
@@ -206,31 +218,60 @@ class Crab:
     def validate_cmd(self, cmd):
         if cmd in self.COMMANDS: return True
         return False
-    def do_exit(self, instobj, lines, index): return 'exit'
-    def do_cal(self, instobj, lines, index): return 'cal'
-    def do_say(self, instobj, lines, index): return 'say'
-    def do_help(self, instobj, lines, index): return 'help'
-    def do_py(self, instobj, lines, index): return 'py'
-    def do_create(self, instobj, lines, index): return 'create'
-    def do_set(self, instobj, lines, index): return 'set'
-    def do_get(self, instobj, lines, index): return 'get'
-    def do_open(self, instobj, lines, index): return 'open'
-    def do_func(self, instobj, lines, index): return 'func'
-    def do_wait(self, instobj, lines, index): return 'wait'
-    def do_int(self, instobj, lines, index): return 'int'
-    def do_ask(self, instobj, lines, index): return 'ask'
-    def do_repeat(self, instobj, lines, index): return 'repeat'
-    def do_return(self, instobj, lines, index): return 'return'
-    def do_use(self, instobj, lines, index): return 'use'
-    def do_cond(self, instobj, lines, index): return 'cond'
-    def do_if(self, instobj, lines, index): return 'if'
-    def do_else(self, instobj, lines, index): return 'else'
-    def do_len(self, instobj, lines, index): return 'len'
-    def do_pass(self, instobj, lines, index): return 'pass'
+    def do_exit(self, instobj, lines, index):
+        exit()
+        return ''
+    def do_cal(self, instobj, lines, index): 
+        try:
+            result = eval(instobj.args['arg1'])
+            return float(result)
+        except NameError as e:
+            return self.error('NameError', e, instobj.line, instobj.lineno)
+        except ZeroDivisionError as e:
+            return self.error('ZeroDivisionError', e, instobj.line, instobj.lineno)
+        except SyntaxError:
+            return self.error('SyntaxError', 'Invalid \'cal\' syntax', instobj.line, instobj.lineno)
+        except TypeError:
+            return kwargs['arg1']
+        except KeyError:
+            return self.error('TypeError', 'Not enough \'cal\' input', instobj.line, instobj.lineno)
+    def do_say(self, instobj, lines, index): 
+        print(*[instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))])
+        return ''
+    def do_help(self, instobj, lines, index): return '\nhelp is not implemented'
+    def do_py(self, instobj, lines, index): return '\npy is not implemented'
+    def do_create(self, instobj, lines, index): return '\ncreate is not implemented'
+    def do_set(self, instobj, lines, index): 
+        if len(instobj.args) == 2:
+            if '[' in instobj.args['arg2']:
+                pass
+            else:
+                self.vars.update({instobj.args['arg1']: ['STR', instobj.args['arg2']]})
+        return ''
+
+
+    def do_get(self, instobj, lines, index): 
+        if len(instobj.args) == 1:
+            return self.vars[instobj.args['arg1']][1]
+
+
+    def do_open(self, instobj, lines, index): return '\nopen is not implemented'
+    def do_func(self, instobj, lines, index): return '\nfunc is not implemented'
+    def do_wait(self, instobj, lines, index): return '\nwait is not implemented'
+    def do_int(self, instobj, lines, index): return '\nint is not implemented'
+    def do_ask(self, instobj, lines, index): return '\nask is not implemented'
+    def do_repeat(self, instobj, lines, index): return '\nrepeat is not implemented'
+    def do_return(self, instobj, lines, index): return '\nreturn is not implemented'
+    def do_use(self, instobj, lines, index): return '\nuse is not implemented'
+    def do_cond(self, instobj, lines, index): return '\ncond is not implemented'
+    def do_if(self, instobj, lines, index): return '\nif is not implemented'
+    def do_else(self, instobj, lines, index): return '\nelse is not implemented'
+    def do_len(self, instobj, lines, index): return '\nlen is not implemented'
+    def do_pass(self, instobj, lines, index): return '\npass is not implemented'
 
 sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crab')
     
 if __name__ == '__main__':
     crabber = Crab()
-    print(crabber.handle_file(sys.argv[1]))
+    print(crabber.handle_file(sys.argv[1]), end='')
     input('\n\nEnter to close ')
