@@ -1,11 +1,13 @@
 import os
 os.system('cls')
+import time
+time.sleep(0.05)
 
 import sys
 import pprint
 import copy
-import time
-time.sleep(0.05)
+import ast
+
 
 class Inst:
 
@@ -33,7 +35,7 @@ class Crab:
             'exit': self.do_exit, 
             'quit': self.do_exit, 
             'cal': self.do_cal, 
-            'say': self.do_say,
+            'cout': self.do_cout,
             'help': self.do_help,
             'py': self.do_py, 
             'create': self.do_create, 
@@ -51,16 +53,19 @@ class Crab:
             'if': self.do_if,
             'else': self.do_else,
             'len': self.do_len,
-            'pass': self.do_pass
+            'pass': self.do_pass,
+            'endl': lambda *a: '\n',
+            'spc': self.do_spc
             }
         
         #Variables
         self.vars = dict()
+        self.do_get_var = ''
 
 
     def error(self, errortype, msg, line, lineno):
         #Returns an error message in a tuple
-        return ('ERROR', '\n%s\nLine %s\n%s\n%s' % (errortype, lineno, line.rstrip('\n'), msg))
+        return ('ERROR', '\n%s\nLine %s\n\'%s\'\n%s' % (errortype, lineno, line.rstrip('\n'), msg))
 
 
     def handle_file(self, file_path):
@@ -96,7 +101,7 @@ class Crab:
         if self.validate_cmd(instobj.inst):
             for key, arg in list(instobj.args.items()):
                 if '{' in arg:
-                    embed = self.find_embed(arg)
+                    embed = self.find_embed(arg, '{', '}')
 
                     for tup in reversed(embed):
                         new_inst = tup[0][1:len(tup[0])-1] if tup[0].startswith('{') and tup[0].endswith('}') else tup[0][1:] if tup[0].startswith('{') else tup[0][:len(tup[0])-1]
@@ -116,20 +121,20 @@ class Crab:
             return self.error('SyntaxError', 'Unknown command \'%s\'' % instobj.inst, instobj.line, instobj.lineno)
 
     
-    def find_embed(self, inst):
+    def find_embed(self, inst, start_embed, end_embed):
         inst += ' '
         token = ''
         result = []
         start = 0
         embeds = found = started = 0
         for i in range(len(inst)):
-            if inst[i] == '{':
+            if inst[i] == start_embed:
                 if started != 1:
                     start = i
                 embeds += 1
                 found = 1
                 started = 1
-            elif inst[i] == '}': embeds -= 1
+            elif inst[i] == end_embed: embeds -= 1
 
             if found == 1 and embeds == 1:
                 token = ''
@@ -143,14 +148,13 @@ class Crab:
 
 
     def parse_lines(self, lines, lineno=False):
-        lines[len(lines)-1] += '\n'
         result = []
-        embeds = quotes = 0
+        embeds = quotes = lists = 0
         token = ''
         last_unindented_line = 0  
         for i, line in enumerate(lines):
 
-            if line.strip(' ') == '\n':
+            if line.lstrip(' ').rstrip(' ') == '\n' and line.strip(' ') != '':
                 result.append(False)
                 continue
 
@@ -173,26 +177,30 @@ class Crab:
             inst.line = line.rstrip('\n').rstrip(' ')
 
             cur_arg = 1
-            for index, tok in enumerate(line):
+            for index, tok in enumerate(line + ' '):
                 token += tok
-                if embeds == 0 and quotes == 0 and tok == ' ' or tok == '\n':
+                if sum([embeds, quotes, lists]) == 0 and tok == ' ' or tok == '\n':
                     if inst.inst == '':
                         inst.inst = token[:-1]
                     else:
-                        inst.args['arg%s' % cur_arg] = token[:-1]
-                        cur_arg += 1
+                        if token[:-1] != '':
+                            inst.args['arg%s' % cur_arg] = token[:-1]
+                            cur_arg += 1
                     token = ''
                 elif tok == '{': embeds += 1
                 elif tok == '}': embeds -= 1
                 elif tok == '"' and quotes == 0: quotes = 1
                 elif tok == '"' and quotes == 1: quotes = 0
+                elif tok == '[': lists += 1
+                elif tok == ']': lists -= 1
 
-                if embeds < 0: return self.error('EmbedError', 'Invalid embed. Excess \'}\'', lines[i], i+1)
+                if embeds < 0: return self.error('SyntaxError', 'Invalid embed. Excess \'}\'', lines[i], i+1)
+                elif lists < 0: return self.error('SyntaxError', 'Invalid list. Excess \']\'', lines[i], i+1)
 
             result.append(copy.deepcopy(inst))
 
-            if embeds > 0: return self.error('EmbedError', 'Invalid embed. Excess \'{\'', lines[i], i+1)
-
+            if embeds > 0: return self.error('SyntaxError', 'Invalid embed. Excess \'{\'', lines[i], i+1)
+            elif lists > 0: return self.error('SyntaxError', 'Invalid list. Excess \'[\'', lines[i], i+1)
 
         return result
 
@@ -205,7 +213,7 @@ class Crab:
     def find_indentation_value(self, lines):
 
         for index, line in enumerate(lines):
-            if line.startswith(' ') and line.rstrip(' ').lstrip(' ') != '\n':
+            if line.startswith(' ') and line.strip(' ') != '\n' and line.strip(' ') != '' :
                 if not lines[index - 1].startswith(' '):
                     i = 0
                     tok = line[i]
@@ -218,12 +226,44 @@ class Crab:
     def validate_cmd(self, cmd):
         if cmd in self.COMMANDS: return True
         return False
+
+    
+    def str2list(self, s):
+        s = s[1:]
+        l = []
+        b = 0
+        t = ''
+
+        for tok in s:
+            if b:
+                if tok == '[': b += 1
+                elif tok == ']': b -= 1
+                t += tok
+
+                if not b:
+                    l.append(self.str2list('[' + t))
+                    t = ''
+            else:
+                if tok == ' ' and t == '':
+                    continue
+                elif tok == ',' or tok == ']':
+                    if t != '':
+                        l.append(t)
+                    t = ''
+                elif tok == '[':
+                    b += 1
+                    t = ''
+                else:
+                    t += tok
+        return l
+
+
     def do_exit(self, instobj, lines, index):
         exit()
         return ''
     def do_cal(self, instobj, lines, index): 
         try:
-            result = eval(instobj.args['arg1'])
+            result = ast.literal_eval(instobj.args['arg1'])
             return float(result)
         except NameError as e:
             return self.error('NameError', e, instobj.line, instobj.lineno)
@@ -235,42 +275,112 @@ class Crab:
             return kwargs['arg1']
         except KeyError:
             return self.error('TypeError', 'Not enough \'cal\' input', instobj.line, instobj.lineno)
-    def do_say(self, instobj, lines, index): 
+    def do_cout(self, instobj, lines, index): 
         print(*[instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))])
         return ''
     def do_help(self, instobj, lines, index): return '\nhelp is not implemented'
     def do_py(self, instobj, lines, index): return '\npy is not implemented'
     def do_create(self, instobj, lines, index): return '\ncreate is not implemented'
     def do_set(self, instobj, lines, index): 
-        if len(instobj.args) == 2:
-            if '[' in instobj.args['arg2']:
-                pass
+        try:
+            if len(instobj.args) == 2:
+                if instobj.args['arg2'].startswith('[') and instobj.args['arg2'].endswith(']'):
+                    self.vars.update({instobj.args['arg1']: ['LIST', self.str2list(instobj.args['arg2'])]})
+                else:
+                    self.vars.update({instobj.args['arg1']: ['STR', instobj.args['arg2']]})
+
+            elif len(instobj.args) >= 3:
+                if instobj.args['arg3'].startswith('[') and instobj.args['arg3'].endswith(']'):
+
+                    indices = ''
+                    for i in range(len(instobj.args) - 2):
+                        arg = instobj.args['arg%s' % (i+2)]
+                        indices += '[%s]' % arg
+
+                    cmd = 'self.vars[instobj.args[\'arg1\']][1]%s = self.str2list(instobj.args[\'arg%s\'])' % (indices, len(instobj.args))
+                    exec(cmd)  
+
+                else:
+                    if self.vars[instobj.args['arg1']][0] == 'STR':
+                        tmp = list(self.vars[instobj.args['arg1']][1])
+                        tmp[int(instobj.args['arg2'])] = instobj.args['arg3']
+                        tmp = ''.join(tmp)
+                        self.vars[instobj.args['arg1']] = ['STR', tmp]
+                    elif self.vars[instobj.args['arg1']][0] == 'LIST':
+                        indices = ''
+                        for i in range(len(instobj.args) - 2):
+                            arg = instobj.args['arg%s' % (i+2)]
+                            indices += '[%s]' % arg
+
+                        cmd = 'self.vars[instobj.args[\'arg1\']][1]%s = instobj.args[\'arg%s\']' % (indices, len(instobj.args))
+                        exec(cmd)
             else:
-                self.vars.update({instobj.args['arg1']: ['STR', instobj.args['arg2']]})
+                return self.error('SyntaxError', 'Too few many arguments to \'set\'', instobj.line, instobj.lineno)
+        except IndexError:
+            return self.error('IndexError', 'Assignment index out of range', instobj.line, instobj.lineno)
+        except KeyError:
+            return self.error('NameError', '\'%s\' is not defined' % instobj.args['arg1'], instobj.line, instobj.lineno)
+        except NameError:
+            return self.error('SyntaxError', 'Indices must be integers' % instobj.args['arg1'], instobj.line, instobj.lineno)
+        except SyntaxError:
+            return self.error('SyntaxError', 'Indices must be integers', instobj.line, instobj.lineno)    
         return ''
 
 
-    def do_get(self, instobj, lines, index): 
+    def do_get(self, instobj, lines, index):
         if len(instobj.args) == 1:
-            return self.vars[instobj.args['arg1']][1]
+            try:
+                return self.vars[instobj.args['arg1']][1]
+            except KeyError as e:
+                return self.error('IndexError', '%s is not defined' % e, instobj.line, instobj.lineno)
+        elif len(instobj.args) >= 2:
+            try:
+                indices = ''
+                for i in range(len(instobj.args) - 1):
+                    arg = instobj.args['arg%s' % (i+2)]
+                    indices += '[%s]' % arg
+
+                exec('self.do_get_var = self.vars[instobj.args[\'arg1\']][1]%s' % indices)
+                return self.do_get_var
+            except ValueError:
+                return self.error('ValueError', 'Can\'t get index \'%s\'' % instobj.args['arg2'], instobj.line, instobj.lineno)
+            except KeyError as e:
+                return self.error('NameError', '%s is not defined' % e, instobj.line, instobj.lineno)
+            except SyntaxError:
+                return self.error('SyntaxError', 'Indices must be integers', instobj.line, instobj.lineno)
+            except NameError:
+                return self.error('SyntaxError', 'Indices must be integers', instobj.line, instobj.lineno)
+            except IndexError as e:
+                return self.error('SyntaxError', e.__str__().capitalize(), instobj.line, instobj.lineno)
+        else:
+            return self.error('SyntaxError', 'Too few arguments to \'get\'', instobj.line, instobj.lineno)
 
 
     def do_open(self, instobj, lines, index): return '\nopen is not implemented'
     def do_func(self, instobj, lines, index): return '\nfunc is not implemented'
     def do_wait(self, instobj, lines, index): return '\nwait is not implemented'
     def do_int(self, instobj, lines, index): return '\nint is not implemented'
-    def do_ask(self, instobj, lines, index): return '\nask is not implemented'
+    def do_ask(self, instobj, lines, index): 
+        return input((' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))])))
+
     def do_repeat(self, instobj, lines, index): return '\nrepeat is not implemented'
     def do_return(self, instobj, lines, index): return '\nreturn is not implemented'
     def do_use(self, instobj, lines, index): return '\nuse is not implemented'
     def do_cond(self, instobj, lines, index): return '\ncond is not implemented'
     def do_if(self, instobj, lines, index): return '\nif is not implemented'
     def do_else(self, instobj, lines, index): return '\nelse is not implemented'
-    def do_len(self, instobj, lines, index): return '\nlen is not implemented'
+    def do_len(self, instobj, lines, index):
+        
+        return instobj.args
     def do_pass(self, instobj, lines, index): return '\npass is not implemented'
+    def do_spc(self, instobj, lines, index):
+        try:
+            return ' ' * (int(instobj.args['arg1']) if len(instobj.args) >= 1 else 1)
+        except ValueError:
+            return self.error('ValueError', 'asd', "1", "1")
 
 sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crab')
-    
+
 if __name__ == '__main__':
     crabber = Crab()
     print(crabber.handle_file(sys.argv[1]), end='')
