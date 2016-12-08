@@ -1,3 +1,5 @@
+#TODO: comments, all commands, command with exec() to gain access to internals (maybe py?), line numbers are wrong inside if/else/repeat clauses
+
 import os
 os.system('cls')
 import time
@@ -8,15 +10,15 @@ import pprint
 import copy
 import ast
 
-
 class Inst:
 
-    def __init__(self, inst='', contents=[], lineno=0, line='', **kwargs):
+    def __init__(self, inst='', contents=[], lineno=0, line='', do=True, **kwargs):
         self.inst = inst
         self.contents = contents
         self.lineno = lineno
         self.line = line
         self.args = kwargs
+        self.do = do
 
     def __repr__(self):
         return '<Inst object \'%s\' at line %s that contains %s lines: %s>' % (self.line, self.lineno, len(self.contents), self.contents)
@@ -31,9 +33,10 @@ class Crab:
         self.FILE_NAME = ''
         self.FILE_DIR = ''
         self.INDENTATION = 4
+        self.BOOLS = ['TRUE', 'FALSE']
+        self.DONT_DO = ['else']
         self.COMMANDS = {
             'exit': self.do_exit, 
-            'quit': self.do_exit, 
             'cal': self.do_cal, 
             'cout': self.do_cout,
             'help': self.do_help,
@@ -44,7 +47,7 @@ class Crab:
             'open': self.do_open,
             'func': self.do_func,
             'wait': self.do_wait,
-            'int': self.do_int,
+            'round': self.do_round,
             'ask': self.do_ask,
             'repeat': self.do_repeat,
             'return': self.do_return,
@@ -54,7 +57,7 @@ class Crab:
             'else': self.do_else,
             'len': self.do_len,
             'pass': self.do_pass,
-            'endl': lambda *a: '\n',
+            'endl': self.do_endl,
             'spc': self.do_spc
             }
         
@@ -72,7 +75,7 @@ class Crab:
         self.FILE_NAME = os.path.basename(file_path)
         self.FILE_DIR = file_path.rstrip(self.FILE_NAME)
         
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', encoding='UTF-8') as f:
             lines = f.readlines()
 
         self.INDENTATION = self.find_indentation_value(lines)
@@ -98,7 +101,7 @@ class Crab:
 
 
     def handle_inst(self, instobj, lines, index):
-        if self.validate_cmd(instobj.inst):
+        if self.validate_cmd(instobj.inst) and instobj.do:
             for key, arg in list(instobj.args.items()):
                 if '{' in arg:
                     embed = self.find_embed(arg, '{', '}')
@@ -118,7 +121,9 @@ class Crab:
 
             return self.COMMANDS[instobj.inst](instobj, lines, index)
         else:
-            return self.error('SyntaxError', 'Unknown command \'%s\'' % instobj.inst, instobj.line, instobj.lineno)
+            if instobj.do:
+                return self.error('SyntaxError', 'Unknown command \'%s\'' % instobj.inst, instobj.line, instobj.lineno)
+            return ''
 
     
     def find_embed(self, inst, start_embed, end_embed):
@@ -182,6 +187,8 @@ class Crab:
                 if sum([embeds, quotes, lists]) == 0 and tok == ' ' or tok == '\n':
                     if inst.inst == '':
                         inst.inst = token[:-1]
+                        if inst.inst in self.DONT_DO:
+                            inst.do = False
                     else:
                         if token[:-1] != '':
                             inst.args['arg%s' % cur_arg] = token[:-1]
@@ -263,7 +270,7 @@ class Crab:
         return ''
     def do_cal(self, instobj, lines, index): 
         try:
-            result = ast.literal_eval(instobj.args['arg1'])
+            result = eval(instobj.args['arg1'])
             return float(result)
         except NameError as e:
             return self.error('NameError', e, instobj.line, instobj.lineno)
@@ -271,8 +278,6 @@ class Crab:
             return self.error('ZeroDivisionError', e, instobj.line, instobj.lineno)
         except SyntaxError:
             return self.error('SyntaxError', 'Invalid \'cal\' syntax', instobj.line, instobj.lineno)
-        except TypeError:
-            return kwargs['arg1']
         except KeyError:
             return self.error('TypeError', 'Not enough \'cal\' input', instobj.line, instobj.lineno)
     def do_cout(self, instobj, lines, index): 
@@ -286,6 +291,8 @@ class Crab:
             if len(instobj.args) == 2:
                 if instobj.args['arg2'].startswith('[') and instobj.args['arg2'].endswith(']'):
                     self.vars.update({instobj.args['arg1']: ['LIST', self.str2list(instobj.args['arg2'])]})
+                elif instobj.args['arg2'] in self.BOOLS:
+                    self.vars.update({instobj.args['arg1']: ['BOOL', instobj.args['arg2']]})
                 else:
                     self.vars.update({instobj.args['arg1']: ['STR', instobj.args['arg2']]})
 
@@ -314,6 +321,8 @@ class Crab:
 
                         cmd = 'self.vars[instobj.args[\'arg1\']][1]%s = instobj.args[\'arg%s\']' % (indices, len(instobj.args))
                         exec(cmd)
+                    else:
+                        return self.error('TypeError', '\'%s\' type is not subscriptable' % self.vars[instobj.args['arg1']][0], instobj.line, instobj.lineno)
             else:
                 return self.error('SyntaxError', 'Too few many arguments to \'set\'', instobj.line, instobj.lineno)
         except IndexError:
@@ -323,7 +332,7 @@ class Crab:
         except NameError:
             return self.error('SyntaxError', 'Indices must be integers' % instobj.args['arg1'], instobj.line, instobj.lineno)
         except SyntaxError:
-            return self.error('SyntaxError', 'Indices must be integers', instobj.line, instobj.lineno)    
+            return self.error('SyntaxError', 'Indices must be integers', instobj.line, instobj.lineno)
         return ''
 
 
@@ -358,26 +367,129 @@ class Crab:
 
     def do_open(self, instobj, lines, index): return '\nopen is not implemented'
     def do_func(self, instobj, lines, index): return '\nfunc is not implemented'
-    def do_wait(self, instobj, lines, index): return '\nwait is not implemented'
-    def do_int(self, instobj, lines, index): return '\nint is not implemented'
+    def do_wait(self, instobj, lines, index):
+        if len(instobj.args) > 1:
+            return self.error('SyntaxError', 'Too many arguments to \'wait\'', instobj.line, instobj.lineno)
+        try:
+            time.sleep(int(instobj.args['arg1']))
+        except ValueError:
+            return self.error('SyntaxError', 'Can\'t wait \'%s\' seconds' % instobj.args['arg1'], instobj.line, instobj.lineno)
+        except OverflowError:
+            return self.error('SyntaxError', 'Can\'t wait \'%s\' seconds' % instobj.args['arg1'], instobj.line, instobj.lineno)
+        return ''
+    def do_round(self, instobj, lines, index):
+        try:
+            if len(instobj.args) == 1:
+                rounded = int(round(float(instobj.args['arg1'])))
+            elif len(instobj.args) == 2:
+                rounded = round(float(instobj.args['arg1']), int(instobj.args['arg2']))
+        except ValueError:
+            return self.error('SyntaxError', 'All arguments to \'round\' must be numbers', instobj.line, instobj.lineno)
+        return rounded
+
     def do_ask(self, instobj, lines, index): 
         return input((' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))])))
 
-    def do_repeat(self, instobj, lines, index): return '\nrepeat is not implemented'
+    def do_repeat(self, instobj, lines, index):
+        if len(instobj.args) > 1:
+            return self.error('SyntaxError', 'Too many arguments to \'repeat\'', instobj.line, instobj.lineno)
+        
+        try:
+            for i in range(int(float(instobj.args['arg1']))):
+                parsed_lines = self.parse_lines(instobj.contents)
+                if type(parsed_lines) == tuple:
+                    return parsed_lines[1]
+                else:
+                    parsed_lines = [item for item in parsed_lines if item]
+
+                outcome = self.handle_lines(parsed_lines)
+                if type(outcome) == tuple:
+                    return outcome[1]
+                outcome = ''
+            return outcome
+        except ValueError:
+            return self.error('ValueError', '\'repeat\' only takes whole numbers as an argument', instobj.line, instobj.lineno)
+        
+
     def do_return(self, instobj, lines, index): return '\nreturn is not implemented'
     def do_use(self, instobj, lines, index): return '\nuse is not implemented'
-    def do_cond(self, instobj, lines, index): return '\ncond is not implemented'
-    def do_if(self, instobj, lines, index): return '\nif is not implemented'
-    def do_else(self, instobj, lines, index): return '\nelse is not implemented'
+    def do_cond(self, instobj, lines, index):
+        if len(instobj.args) != 3:
+            return self.error('SyntaxError', '\'cond\' takes exactly 3 arguments', instobj.line, instobj.lineno)
+
+        if instobj.args['arg2'] == '==':
+            if instobj.args['arg1'] == instobj.args['arg3']: return 'TRUE'
+            else: return 'FALSE'
+        elif instobj.args['arg2'] == '<=':
+            if instobj.args['arg1'] <= instobj.args['arg3']: return 'TRUE'
+            else: return 'FALSE'
+        elif instobj.args['arg2'] == '>=':
+            if instobj.args['arg1'] >= instobj.args['arg3']: return 'TRUE'
+            else: return 'FALSE'
+        elif instobj.args['arg2'] == '!=':
+            if instobj.args['arg1'] != instobj.args['arg3']: return 'TRUE'
+            else: return 'FALSE'
+        elif instobj.args['arg2'] == '<':
+            if instobj.args['arg1'] < instobj.args['arg3']: return 'TRUE'
+            else: return 'FALSE'
+        elif instobj.args['arg2'] == '>':
+            if instobj.args['arg1'] > instobj.args['arg3']: return 'TRUE'
+            else: return 'FALSE'
+
+
+    def do_if(self, instobj, lines, index):
+        if len(instobj.args) != 1:
+            return self.error('SyntaxError', 'Too many arguments to \'if\'', instobj.line, instobj.lineno)
+
+        if instobj.args['arg1'] == 'TRUE':
+            parsed_lines = self.parse_lines(instobj.contents)
+            if type(parsed_lines) == tuple:
+                return parsed_lines[1]
+            else:
+                parsed_lines = [item for item in parsed_lines if item]
+            return self.handle_lines(parsed_lines)
+        elif instobj.args['arg1'] == 'FALSE' and len(lines) > index+1:
+            if lines[index+1].inst == 'else':
+                lines[index+1].do = True
+        else:
+            return self.error('TypeError', '\'if\' only take type BOOL as argument', instobj.line, instobj.lineno)
+        return ''
+
+    def do_else(self, instobj, lines, index):
+        if len(instobj.args) > 0:
+            return self.error('SyntaxError', '\'else\' doesn\'t take any arguments', instobj.line, instobj.lineno)
+
+        parsed_lines = self.parse_lines(instobj.contents)
+        if type(parsed_lines) == tuple:
+            return parsed_lines[1]
+        else:
+            parsed_lines = [item for item in parsed_lines if item]
+        return self.handle_lines(parsed_lines)
     def do_len(self, instobj, lines, index):
+        if len(instobj.args) == 1:
+            if instobj.args['arg1'].startswith('[') and instobj.args['arg1'].endswith(']'):
+                return len(self.str2list(instobj.args['arg1']))
+            elif instobj.args['arg1'] in self.BOOLS:
+                return '1'
+            else:
+                return len(instobj.args['arg1'])
+        else:
+            return self.error('SyntaxError', 'Too many arguments to \'len\'', instobj.line, instobj.lineno)
         
         return instobj.args
-    def do_pass(self, instobj, lines, index): return '\npass is not implemented'
+    def do_pass(self, instobj, lines, index):
+        return ''
     def do_spc(self, instobj, lines, index):
         try:
             return ' ' * (int(instobj.args['arg1']) if len(instobj.args) >= 1 else 1)
         except ValueError:
-            return self.error('ValueError', 'asd', "1", "1")
+            return self.error('ValueError', '\'spc\' only takes whole numbers as the second argument', instobj.line, instobj.lineno)
+
+    def do_endl(self, instobj, lines, index):
+        try:
+            return '\n' * (int(instobj.args['arg1']) if len(instobj.args) >= 1 else 1)
+        except ValueError:
+            return self.error('ValueError', '\'endl\' only takes whole numbers as the second argument', instobj.line, instobj.lineno)
 
 sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crab')
 
