@@ -1,27 +1,30 @@
-#TODO: comments, all commands, command with exec() to gain access to internals (maybe py?), line numbers are wrong inside if/else/repeat clauses
+#TODO: comments, all commands, command with exec() to gain access to internals (maybe py?), func args
 
+import ast
+import copy
 import os
-os.system('cls')
+import pprint
+import sys
 import time
+
+os.system('cls')
 time.sleep(0.05)
 
-import sys
-import pprint
-import copy
-import ast
 
 class Inst:
 
-    def __init__(self, inst='', contents=[], lineno=0, line='', do=True, **kwargs):
+    def __init__(self, inst='', contents=[], lineno=0, line='', do=True, parent=False, embedded_in='', **kwargs):
         self.inst = inst
         self.contents = contents
         self.lineno = lineno
         self.line = line
         self.args = kwargs
         self.do = do
+        self.parent = parent
+        self.embedded_in = embedded_in
 
     def __repr__(self):
-        return '<Inst object \'%s\' at line %s that contains %s lines: %s>' % (self.line, self.lineno, len(self.contents), self.contents)
+        return '<Inst object \'%s\' at line %s that %scontains %s line(s): %s>' % (self.line, self.lineno, ('is child of %s and ' % self.parent) if self.parent else '', len(self.contents), self.contents)
 
 
 class Crab:
@@ -32,6 +35,7 @@ class Crab:
         #Constants
         self.FILE_NAME = ''
         self.FILE_DIR = ''
+        self.FILE_PATH = ''
         self.INDENTATION = 4
         self.BOOLS = ['TRUE', 'FALSE']
         self.DONT_DO = ['else']
@@ -63,17 +67,19 @@ class Crab:
         
         #Variables
         self.vars = dict()
-        self.do_get_var = ''
+        self.funcs = dict()
+        self.do_get_var = str()
 
 
     def error(self, errortype, msg, line, lineno):
         #Returns an error message in a tuple
-        return ('ERROR', '\n%s\nLine %s\n\'%s\'\n%s' % (errortype, lineno, line.rstrip('\n'), msg))
+        return ('ERROR', '\n%s\n%s\nLine %s\n\'%s\'\n%s' % (self.FILE_PATH, errortype, lineno, line.rstrip('\n'), msg))
 
 
     def handle_file(self, file_path):
         self.FILE_NAME = os.path.basename(file_path)
         self.FILE_DIR = file_path.rstrip(self.FILE_NAME)
+        self.FILE_PATH = file_path
         
         with open(file_path, 'r', encoding='UTF-8') as f:
             lines = f.readlines()
@@ -86,15 +92,19 @@ class Crab:
         else:
             parsed_lines = [item for item in parsed_lines if item]
             #pprint.pprint(parsed_lines)
-        
+
         return self.handle_lines(parsed_lines)
 
     
     def handle_lines(self, lines):
         for i, instobj in enumerate(lines):
             result = self.handle_inst(instobj, lines, i)
-            if type(result) == tuple and result[0] == 'ERROR':
-                return result[1]
+            if type(result) == tuple:
+                if result[0] == 'ERROR':
+                    return result[1]
+                elif result[0] == 'RETURN':
+                    return result
+
             else:
                 print(result, end='')
         return ''
@@ -108,12 +118,21 @@ class Crab:
 
                     for tup in reversed(embed):
                         new_inst = tup[0][1:len(tup[0])-1] if tup[0].startswith('{') and tup[0].endswith('}') else tup[0][1:] if tup[0].startswith('{') else tup[0][:len(tup[0])-1]
-
-                        parsed_line_instobj = self.parse_lines([new_inst], lineno='%s, embedded in \'%s\'' % (instobj.lineno, instobj.line))[0]
+                        parsed_line_instobj = self.parse_lines([new_inst], lineno=instobj.lineno, embedded_in=instobj.line, parent=instobj)[0]
                         selfcall_outcome = self.handle_inst(parsed_line_instobj, False, False)
 
                         if type(selfcall_outcome) == tuple:
-                            return selfcall_outcome
+                            if selfcall_outcome[0] == 'ERROR': 
+                                return selfcall_outcome
+                            elif selfcall_outcome[0] == 'RETURN':
+                                instobj.args[key] = list(instobj.args[key])
+                                instobj.args[key][tup[1]: tup[2]] = list(str(selfcall_outcome))
+                                instobj.args[key] = ''.join(instobj.args[key])
+                                if instobj.parent:
+                                    if instobj.parent.inst == 'func':
+                                        return ('RETURN', self.COMMANDS[instobj.inst](instobj, lines, index), selfcall_outcome[2])
+                                    else:
+                                        return self.error('SyntaxError', '\'return\' outside function', instobj.line, instobj.lineno)
                         else:
                             instobj.args[key] = list(instobj.args[key])
                             instobj.args[key][tup[1]: tup[2]] = list(str(selfcall_outcome))
@@ -152,7 +171,7 @@ class Crab:
         return result   
 
 
-    def parse_lines(self, lines, lineno=False):
+    def parse_lines(self, lines, lineno=False, indentline=0, parent=False, embedded_in=''):
         result = []
         embeds = quotes = lists = 0
         token = ''
@@ -167,9 +186,12 @@ class Crab:
             while nline[:self.INDENTATION] == ' ' * self.INDENTATION:
                 nline = nline[self.INDENTATION:]
             else:
-                if nline[0] == ' ': return self.error('IndentationError', 'Invalid indentation', lines[i], i+1)
+                try:
+                    if nline[0] == ' ': return self.error('IndentationError', 'Invalid indentation', lines[i], i+1)
+                except IndexError:
+                    continue # Quick bugfix, might cause troubles later
 
-            inst = Inst(lineno = (i+1) if not lineno else lineno)
+            inst = Inst(lineno = (i+1+indentline) if not lineno else int(lineno)+indentline, parent=parent, embedded_in=embedded_in)
             
             if self.check_if_indented(line):
                 line = line[self.INDENTATION:]
@@ -201,13 +223,13 @@ class Crab:
                 elif tok == '[': lists += 1
                 elif tok == ']': lists -= 1
 
-                if embeds < 0: return self.error('SyntaxError', 'Invalid embed. Excess \'}\'', lines[i], i+1)
-                elif lists < 0: return self.error('SyntaxError', 'Invalid list. Excess \']\'', lines[i], i+1)
+                if embeds < 0: return self.error('SyntaxError', 'Invalid embed. Missing \'{\'', lines[i], inst.lineno+1)
+                elif lists < 0: return self.error('SyntaxError', 'Invalid list. Missing \'[\'', lines[i], inst.lineno+1)
 
             result.append(copy.deepcopy(inst))
 
-            if embeds > 0: return self.error('SyntaxError', 'Invalid embed. Excess \'{\'', lines[i], i+1)
-            elif lists > 0: return self.error('SyntaxError', 'Invalid list. Excess \'[\'', lines[i], i+1)
+            if embeds > 0: return self.error('SyntaxError', 'Invalid embed. Missing \'}\'', lines[i], inst.lineno+1)
+            elif lists > 0: return self.error('SyntaxError', 'Invalid list. Missing \']\'', lines[i], inst.lineno+1)
 
         return result
 
@@ -236,6 +258,11 @@ class Crab:
 
     
     def str2list(self, s):
+        if not (s.startswith('[') and s.endswith(']')):
+            return False       
+        elif s == '[]':
+            return []
+
         s = s[1:]
         l = []
         b = 0
@@ -250,25 +277,30 @@ class Crab:
                 if not b:
                     l.append(self.str2list('[' + t))
                     t = ''
+                    
             else:
-                if tok == ' ' and t == '':
+                if (tok == ' ' and t == '') or (tok in ["'", '"']):
                     continue
                 elif tok == ',' or tok == ']':
                     if t != '':
                         l.append(t)
-                    t = ''
+                        t = ''
                 elif tok == '[':
                     b += 1
                     t = ''
                 else:
                     t += tok
+
+        if len(s) > 0 and len(l) == 0:
+            return False 
         return l
+
 
 
     def do_exit(self, instobj, lines, index):
         exit()
         return ''
-    def do_cal(self, instobj, lines, index): 
+    def do_cal(self, instobj, lines, index):
         try:
             result = eval(instobj.args['arg1'])
             return float(result)
@@ -281,7 +313,7 @@ class Crab:
         except KeyError:
             return self.error('TypeError', 'Not enough \'cal\' input', instobj.line, instobj.lineno)
     def do_cout(self, instobj, lines, index): 
-        print(*[instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))])
+        print('\n', ' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))]), end='', sep='')
         return ''
     def do_help(self, instobj, lines, index): return '\nhelp is not implemented'
     def do_py(self, instobj, lines, index): return '\npy is not implemented'
@@ -366,7 +398,47 @@ class Crab:
 
 
     def do_open(self, instobj, lines, index): return '\nopen is not implemented'
-    def do_func(self, instobj, lines, index): return '\nfunc is not implemented'
+    def do_func(self, instobj, lines, index):
+        if len(instobj.args) < 1:
+            return self.error('SyntaxError', 'Too few arguments to \'func\'', instobj.line, instobj.lineno)
+
+        func_keywords = ['def']
+
+        if len(instobj.args) == 2 and instobj.args['arg1'] in func_keywords:
+            if instobj.args['arg1'] == 'def':
+                parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj)
+                if type(parsed_lines) == tuple:
+                    return parsed_lines[1]
+                else:
+                    parsed_lines = [item for item in parsed_lines if item]
+                self.funcs[instobj.args['arg2']] = parsed_lines
+                self.vars.update({'_%s_args' % instobj.args['arg2']: ['LIST', []]})
+
+            else:
+                return self.error('SyntaxError', 'Can\'t do func \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
+        
+        else:
+            try:
+                args = []
+                for i in range(len(instobj.args)):
+                    if i == 0:
+                        continue
+                    args.append(instobj.args['arg%s' % (i+1)])
+                self.vars.update({'_%s_args' % instobj.args['arg1']: ['LIST', args]})
+
+                result = self.handle_lines(self.funcs[instobj.args['arg1']])
+                if type(result) == tuple:
+                    if result[0] == 'ERROR':
+                        return result[1]
+                    elif result[0] == 'RETURN':
+                        return result[1]
+                return result
+            except KeyError:
+                return self.error('NameError', '\'%s\' is not defined' % instobj.args['arg1'], instobj.line, instobj.lineno)
+
+        return ''
+
+
     def do_wait(self, instobj, lines, index):
         if len(instobj.args) > 1:
             return self.error('SyntaxError', 'Too many arguments to \'wait\'', instobj.line, instobj.lineno)
@@ -396,7 +468,7 @@ class Crab:
         
         try:
             for i in range(int(float(instobj.args['arg1']))):
-                parsed_lines = self.parse_lines(instobj.contents)
+                parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj)
                 if type(parsed_lines) == tuple:
                     return parsed_lines[1]
                 else:
@@ -411,8 +483,35 @@ class Crab:
             return self.error('ValueError', '\'repeat\' only takes whole numbers as an argument', instobj.line, instobj.lineno)
         
 
-    def do_return(self, instobj, lines, index): return '\nreturn is not implemented'
-    def do_use(self, instobj, lines, index): return '\nuse is not implemented'
+    def do_return(self, instobj, lines, index):
+        in_func = False
+        next_parent = instobj.parent
+        while next_parent:
+            if next_parent.inst == 'func':
+                in_func = True
+                break
+            next_parent = next_parent.parent
+        else:
+            return self.error('SyntaxError', '\'return\' outside function', instobj.line, instobj.lineno)
+
+        return ('RETURN', ' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))]), instobj)
+
+
+    def do_use(self, instobj, lines, index):
+        if len(instobj.args) != 1:
+            return self.error('SyntaxError', 'Too many or too few arguments to \'use\'', instobj.line, instobj.lineno)
+        elif instobj.args['arg1'] + '.crb' in [self.FILE_NAME, self.FILE_PATH]:
+            return self.error('UseError', 'Can\'t \'use\' self', instobj.line, instobj.lineno)
+
+        try:
+            return self.handle_file(self.FILE_DIR + instobj.args['arg1'] + '.crb')
+        except PermissionError:
+            try:
+                return self.handle_file(instobj.args['arg1'])
+            except PermissionError:
+                return self.error('UseError', 'Couldn\'t find module \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
+        return ''
+
     def do_cond(self, instobj, lines, index):
         if len(instobj.args) != 3:
             return self.error('SyntaxError', '\'cond\' takes exactly 3 arguments', instobj.line, instobj.lineno)
@@ -420,51 +519,88 @@ class Crab:
         if instobj.args['arg2'] == '==':
             if instobj.args['arg1'] == instobj.args['arg3']: return 'TRUE'
             else: return 'FALSE'
+
         elif instobj.args['arg2'] == '<=':
             if instobj.args['arg1'] <= instobj.args['arg3']: return 'TRUE'
             else: return 'FALSE'
+
         elif instobj.args['arg2'] == '>=':
             if instobj.args['arg1'] >= instobj.args['arg3']: return 'TRUE'
             else: return 'FALSE'
+
         elif instobj.args['arg2'] == '!=':
             if instobj.args['arg1'] != instobj.args['arg3']: return 'TRUE'
             else: return 'FALSE'
+
         elif instobj.args['arg2'] == '<':
             if instobj.args['arg1'] < instobj.args['arg3']: return 'TRUE'
             else: return 'FALSE'
+
         elif instobj.args['arg2'] == '>':
             if instobj.args['arg1'] > instobj.args['arg3']: return 'TRUE'
             else: return 'FALSE'
 
+        elif instobj.args['arg2'] == 'in':
+            arg1 = self.str2list(instobj.args['arg1'])
+            arg3 = self.str2list(instobj.args['arg3'])
+            if not arg1:
+                arg1 = instobj.args['arg1']
+            if not arg3:
+                arg3 = instobj.args['arg3']
+            try:
+                if arg1 in arg3: return 'TRUE'
+                else: return 'FALSE'
+            except TypeError:
+                return 'FALSE'
 
     def do_if(self, instobj, lines, index):
         if len(instobj.args) != 1:
             return self.error('SyntaxError', 'Too many arguments to \'if\'', instobj.line, instobj.lineno)
 
         if instobj.args['arg1'] == 'TRUE':
-            parsed_lines = self.parse_lines(instobj.contents)
+            parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj)
             if type(parsed_lines) == tuple:
                 return parsed_lines[1]
             else:
                 parsed_lines = [item for item in parsed_lines if item]
-            return self.handle_lines(parsed_lines)
+
+            result = self.handle_lines(parsed_lines)
+            if type(result) == tuple:
+                if result[0] == 'ERROR':
+                    return result[1]
+                elif result[0] == 'RETURN':
+                    return result
+            return result
+
+
         elif instobj.args['arg1'] == 'FALSE' and len(lines) > index+1:
             if lines[index+1].inst == 'else':
                 lines[index+1].do = True
         else:
-            return self.error('TypeError', '\'if\' only take type BOOL as argument', instobj.line, instobj.lineno)
+            if instobj.args['arg1'] != 'FALSE':
+                return self.error('TypeError', '\'if\' only take type BOOL as argument', instobj.line, instobj.lineno)
         return ''
+
 
     def do_else(self, instobj, lines, index):
         if len(instobj.args) > 0:
             return self.error('SyntaxError', '\'else\' doesn\'t take any arguments', instobj.line, instobj.lineno)
 
-        parsed_lines = self.parse_lines(instobj.contents)
+        parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj)
         if type(parsed_lines) == tuple:
             return parsed_lines[1]
         else:
             parsed_lines = [item for item in parsed_lines if item]
-        return self.handle_lines(parsed_lines)
+        
+        result = self.handle_lines(parsed_lines)
+        if type(result) == tuple:
+            if result[0] == 'ERROR':
+                return result[1]
+            elif result[0] == 'RETURN':
+                return result
+        return result
+
+
     def do_len(self, instobj, lines, index):
         if len(instobj.args) == 1:
             if instobj.args['arg1'].startswith('[') and instobj.args['arg1'].endswith(']'):
@@ -491,7 +627,7 @@ class Crab:
         except ValueError:
             return self.error('ValueError', '\'endl\' only takes whole numbers as the second argument', instobj.line, instobj.lineno)
 
-sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crab')
+sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crb')
 
 if __name__ == '__main__':
     crabber = Crab()
