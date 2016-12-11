@@ -1,4 +1,4 @@
-#TODO: comments, all commands, command with exec() to gain access to internals (maybe py?), func args
+#TODO: comments, all commands, command with exec() to gain access to internals (maybe py?), let if do cond
 
 import ast
 import copy
@@ -73,7 +73,7 @@ class Crab:
 
     def error(self, errortype, msg, line, lineno):
         #Returns an error message in a tuple
-        return ('ERROR', '\n%s\n%s\nLine %s\n\'%s\'\n%s' % (self.FILE_PATH, errortype, lineno, line.rstrip('\n'), msg))
+        return ('ERROR', '\n\n%s\n%s\nLine %s\n\'%s\'\n%s' % (self.FILE_PATH, errortype, lineno, line.rstrip('\n'), msg))
 
 
     def handle_file(self, file_path):
@@ -513,8 +513,16 @@ class Crab:
         return ''
 
     def do_cond(self, instobj, lines, index):
-        if len(instobj.args) != 3:
+        if len(instobj.args) == 2:
+            if instobj.args['arg1'] == 'not':
+                if not (instobj.args['arg2'] == 'TRUE'): return 'TRUE'
+                else: return 'FALSE'
+            else:
+                return self.error('SyntaxError', 'There is no such logic gate: \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
+
+        elif len(instobj.args) != 3:
             return self.error('SyntaxError', '\'cond\' takes exactly 3 arguments', instobj.line, instobj.lineno)
+
 
         if instobj.args['arg2'] == '==':
             if instobj.args['arg1'] == instobj.args['arg3']: return 'TRUE'
@@ -540,6 +548,30 @@ class Crab:
             if instobj.args['arg1'] > instobj.args['arg3']: return 'TRUE'
             else: return 'FALSE'
 
+        elif instobj.args['arg2'] == 'and':
+            if instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE': return 'TRUE'
+            else: return 'FALSE'
+
+        elif instobj.args['arg2'] == 'or':
+            if instobj.args['arg1'] == 'TRUE' or instobj.args['arg3'] == 'TRUE': return 'TRUE'
+            else: return 'FALSE'
+
+        elif instobj.args['arg2'] == 'xor':
+            if (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'FALSE') or (instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'TRUE'): return 'TRUE'
+            else: return 'FALSE'
+
+        elif instobj.args['arg2'] == 'nand':
+            if not (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE'): return 'TRUE'
+            else: return 'FALSE'
+
+        elif instobj.args['arg2'] == 'nor':
+            if instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'FALSE': return 'TRUE'
+            else: return 'FALSE'
+
+        elif instobj.args['arg2'] == 'xnor':
+            if (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE') or (instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'FALSE'): return 'TRUE'
+            else: return 'FALSE'
+
         elif instobj.args['arg2'] == 'in':
             arg1 = self.str2list(instobj.args['arg1'])
             arg3 = self.str2list(instobj.args['arg3'])
@@ -552,6 +584,9 @@ class Crab:
                 else: return 'FALSE'
             except TypeError:
                 return 'FALSE'
+
+        else:
+            return self.error('SyntaxError', 'There is no such logic gate: \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
 
     def do_if(self, instobj, lines, index):
         if len(instobj.args) != 1:
@@ -628,6 +663,7 @@ class Crab:
             return self.error('ValueError', '\'endl\' only takes whole numbers as the second argument', instobj.line, instobj.lineno)
 
 sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crb')
+
 
 if __name__ == '__main__':
     crabber = Crab()
