@@ -12,14 +12,4 @@ func def c.fib
         set c.fib_next {cal {get c.fib_prev}+{get c.fib_next}}
         set c.fib_prev {get c.fib_tmp}
 
-
-func def c.append
-    if {cond {len {get _c.append_args}} != 2}
-        return Not enough or too many arguments to c.append
-    
-    py_exec
-        try:
-            self.vars[self.vars['_c.append_args'][1][0]][1].append(self.vars['_c.append_args'][1][1])
-        except:
-            print(self.error('UnknownError', 'c.append didn\'t get the excepted arguments', '?', '?')[1])
-    
+func c.fib

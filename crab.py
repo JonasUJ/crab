@@ -1,4 +1,4 @@
-#TODO: comments, all commands, command with exec() to gain access to internals (maybe py?), let if do cond
+#TODO: all commands, command with exec() to gain access to internals (maybe py?), let if do cond
 
 import ast
 import copy
@@ -24,7 +24,7 @@ class Inst:
         self.embedded_in = embedded_in
 
     def __repr__(self):
-        return '<Inst object \'%s\' at line %s that %scontains %s line(s): %s>' % (self.line, self.lineno, ('is child of %s and ' % self.parent) if self.parent else '', len(self.contents), self.contents)
+        return '<Inst object \'%s\' at line %s that %scontains %s line(s): %s %s>' % (self.line, self.lineno, ('is child of %s and ' % self.parent) if self.parent else '', len(self.contents), self.contents, self.args)
 
 
 class Crab:
@@ -44,7 +44,7 @@ class Crab:
             'cal': self.do_cal, 
             'cout': self.do_cout,
             'help': self.do_help,
-            'py': self.do_py, 
+            'py_exec': self.do_py_exec, 
             'create': self.do_create, 
             'set': self.do_set, 
             'get': self.do_get, 
@@ -181,6 +181,10 @@ class Crab:
             if line.lstrip(' ').rstrip(' ') == '\n' and line.strip(' ') != '':
                 result.append(False)
                 continue
+            elif len(line.lstrip(' ')) > 0:
+                if line.lstrip(' ')[0] == '#':
+                    result.append(False)
+                    continue
 
             nline = line
             while nline[:self.INDENTATION] == ' ' * self.INDENTATION:
@@ -194,10 +198,13 @@ class Crab:
             inst = Inst(lineno = (i+1+indentline) if not lineno else int(lineno)+indentline, parent=parent, embedded_in=embedded_in)
             
             if self.check_if_indented(line):
-                line = line[self.INDENTATION:]
-                result[last_unindented_line].contents.append(line)
-                result.append(False)
-                continue
+                try:
+                    line = line[self.INDENTATION:]
+                    result[last_unindented_line].contents.append(line)
+                    result.append(False)
+                    continue
+                except AttributeError:
+                    return self.error('IndentationError', 'Invalid indentation', lines[i], i+1)
             else:
                 last_unindented_line = i
 
@@ -222,11 +229,17 @@ class Crab:
                 elif tok == '"' and quotes == 1: quotes = 0
                 elif tok == '[': lists += 1
                 elif tok == ']': lists -= 1
+                elif tok == '#':
+                    if token.strip(' ') == '#':
+                        token = ''
+                        break
+                    return self.error('SyntaxError', 'Invalid comment, comments can only occur on seperat lines or after a space', lines[i], inst.lineno+1)
 
                 if embeds < 0: return self.error('SyntaxError', 'Invalid embed. Missing \'{\'', lines[i], inst.lineno+1)
                 elif lists < 0: return self.error('SyntaxError', 'Invalid list. Missing \'[\'', lines[i], inst.lineno+1)
 
-            result.append(copy.deepcopy(inst))
+            if inst.inst != '':
+                result.append(copy.deepcopy(inst))
 
             if embeds > 0: return self.error('SyntaxError', 'Invalid embed. Missing \'}\'', lines[i], inst.lineno+1)
             elif lists > 0: return self.error('SyntaxError', 'Invalid list. Missing \']\'', lines[i], inst.lineno+1)
@@ -316,7 +329,14 @@ class Crab:
         print('\n', ' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))]), end='', sep='')
         return ''
     def do_help(self, instobj, lines, index): return '\nhelp is not implemented'
-    def do_py(self, instobj, lines, index): return '\npy is not implemented'
+    def do_py_exec(self, instobj, lines, index):
+        try:
+            result = exec('\n'.join(instobj.contents))
+            return ''
+        except Exception as e:
+            return self.error('py_execError', e, 'Below exception was thrown by Python', instobj.lineno)
+
+
     def do_create(self, instobj, lines, index): return '\ncreate is not implemented'
     def do_set(self, instobj, lines, index): 
         try:
@@ -590,7 +610,7 @@ class Crab:
 
     def do_if(self, instobj, lines, index):
         if len(instobj.args) != 1:
-            return self.error('SyntaxError', 'Too many arguments to \'if\'', instobj.line, instobj.lineno)
+            return self.error('SyntaxError', '\'if\' takes 1 argument, but got %s' % len(instobj.args), instobj.line, instobj.lineno)
 
         if instobj.args['arg1'] == 'TRUE':
             parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj)
@@ -663,7 +683,6 @@ class Crab:
             return self.error('ValueError', '\'endl\' only takes whole numbers as the second argument', instobj.line, instobj.lineno)
 
 sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crb')
-
 
 if __name__ == '__main__':
     crabber = Crab()

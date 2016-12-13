@@ -1,0 +1,11 @@
+# 'ask' waits for the user to press enter
+# It takes any amount of arguments
+# Like 'cout', 'ask' prints all arguments joined by a space
+# After printing, the user has to press enter for the script to continue. If the user wrote anything, 'ask' will return it
+
+# Example
+
+ask Hello World!{spc}
+
+#> Hello World! foo bar
+#> foo bar

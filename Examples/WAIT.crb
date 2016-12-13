@@ -1,0 +1,12 @@
+# 'wait' stops the script for a specified amount of seconds
+# The specified amount is the first argument
+# Giving 'wait' more than 1 argument will throw an error
+
+# Example
+
+cout Start
+wait 2
+cout 2 seconds has passed
+
+#> Start
+#> 2 seconds has passed

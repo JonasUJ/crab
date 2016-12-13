@@ -1,0 +1,36 @@
+# A script that prints x of the fibonacci numbers
+
+# Define a function 'c.fib'
+func def c.fib
+
+    # If 'c.fib' got 1 or more arguments
+    if {cond {len {get _c.fib_args}} >= 1}
+
+        # Set 'c.fib_times' to the first argument
+        set c.fib_times {get _c.fib_args 0}
+
+    # If 'c.fib' didn't get any arguments
+    else
+
+        # Set 'c.fib_times' to 8
+        set c.fib_times 8
+    
+    # Initialize by creating 2 variables: 'c.fib_prev' and 'c.fib_next'
+    set c.fib_prev 0
+    set c.fib_next 1
+
+    # Loop 'c.fib_times' times. If it got an argument x it will loop x times otherwise it will loop 8 times
+    repeat {get c.fib_times}
+
+        # Output the sum of 'c.fib_prev' and 'get c.fib_next'
+        cout {round {cal {get c.fib_prev}+{get c.fib_next}}}
+
+        # Change the variables for next iteration
+        set c.fib_tmp {get c.fib_next}
+        set c.fib_next {cal {get c.fib_prev}+{get c.fib_next}}
+        set c.fib_prev {get c.fib_tmp}
+
+
+# Call 'c.fib' with '20' as the argument
+# This should print the first 20 fibonacci numbers
+func c.fib 20

@@ -1,0 +1,21 @@
+# 'set' creates a key that corrosponds to a value (like a dictonary) which can be used with 'get'
+# It takes 2 or more arguments
+# 'set' will either change a variable or create a new one
+# If given more than 2 arguments it will change what is at that index of the corrosponding value
+
+# Examples
+
+set a FooBar
+cout {get a}
+set a 5 z
+cout {get a}
+
+set b [0, 1, [2.1, 2.2]]
+cout {get b}
+set b 2 0 qux
+cout {get b}
+
+#> FooBar
+#> FooBaz
+#> ['0', '1', ['2.1', '2.2']]
+#> ['0', '1', ['qux', '2.2']]

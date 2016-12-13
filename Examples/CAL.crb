@@ -1,0 +1,11 @@
+# 'cal' evaluates an expression using Pythons built-in eval() function
+# It doesn't take a specified amount of arguments, it however only evaluates the first
+# 'cal' throws an error if it can't evaluate the expression
+
+# Examples
+
+cout {cal 1+1}
+cout {cal 2+2*4}
+
+#> 2.0
+#> 10.0

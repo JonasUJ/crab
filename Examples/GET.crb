@@ -1,0 +1,13 @@
+# 'get' returns the value corrosponding to the given key
+# It takes 1 or more arguments
+
+# Examples
+
+set a FooBar
+cout {get a 3}
+
+set b [0, 1, [2.1, 2.2]]
+cout {get b 2 1}
+
+#> B 
+#> 2.2

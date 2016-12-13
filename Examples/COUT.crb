@@ -1,0 +1,4 @@
+# 'cout' returns nothing and prints all arguments, joined by a space, to the console
+
+# Example
+cout Hello World!

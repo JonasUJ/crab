@@ -1,0 +1,5 @@
+# 'exit' terminates the script instantly
+# 'exit' doesn't care about arguments
+
+# Example
+exit
