@@ -1,0 +1,47 @@
+# This script compares 'bool1' and 'bool2' to each other using every logic gate/comparison operator
+# If 'bool1' 'x' 'bool2' returns 'TRUE' it will print 'x'
+
+# Feel free to change these variables, doing so will yield different output
+set bool1 TRUE
+set bool2 FALSE
+
+cout {get bool1} compared to {get bool2} {endl}
+
+if {cond {get bool1} and {get bool2}}
+    cout and
+
+if {cond {get bool1} or {get bool2}}
+    cout or
+
+if {cond not {get bool1}}
+    cout not
+
+if {cond {get bool1} xor {get bool2}}
+    cout xor
+
+if {cond {get bool1} nand {get bool2}}
+    cout nand
+
+if {cond {get bool1} nor {get bool2}}
+    cout nor
+
+if {cond {get bool1} xnor {get bool2}}
+    cout xnor
+
+if {cond {get bool1} == {get bool2}}
+    cout ==
+
+if {cond {get bool1} >= {get bool2}}
+    cout >=
+
+if {cond {get bool1} <= {get bool2}}
+    cout <=
+
+if {cond {get bool1} != {get bool2}}
+    cout !=
+
+if {cond {get bool1} < {get bool2}}
+    cout <
+
+if {cond {get bool1} > {get bool2}}
+    cout >

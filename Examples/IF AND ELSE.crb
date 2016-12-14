@@ -1,0 +1,19 @@
+# 'if' runs the indented code if the first (and only) argument is 'TRUE'
+# It only accepts 'TRUE' and 'FALSE' as an argument, it will throw an error if it gets anything else
+# If 'if' gets 'FALSE' as the argument it will instead look for an 'else' further ahead in the script
+# If it finds and 'else' it will run 'else's indented code
+
+# Examples
+
+if TRUE
+    cout This code runs
+
+if FALSE
+    cout This code doesn't run
+else
+    cout This does run because the above didn't
+
+#> This code runs
+#> This does run because the above didn't
+
+# NOTE: 'if' goes well with 'cond'

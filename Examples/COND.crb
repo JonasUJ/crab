@@ -1,0 +1,17 @@
+# 'cond' takes 2 or 3 arguments and returns either 'TRUE' or 'FALSE'
+# 'cond' first looks for anything 
+# Then it looks for a comparison operator (==, !=, <=, >=, <, >) or a logic gate (and, or, not, xor, nand, nor, xnor)
+# Lastly it looks for anything again
+
+# Examples
+
+cout {cond TRUE == FALSE}
+cout {cond TRUE xor TRUE}
+cout {cond foo >= bar}
+
+#> FALSE
+#> FALSE
+#> TRUE
+
+# More examples in 'LogicGates.crb'
+# NOTE: 'cond' goes well with 'if'

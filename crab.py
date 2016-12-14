@@ -1,4 +1,4 @@
-#TODO: all commands, command with exec() to gain access to internals (maybe py?), let if do cond
+#TODO: all commands, let if do cond, more loops (while, for in, etc.)
 
 import ast
 import copy
@@ -73,7 +73,7 @@ class Crab:
 
     def error(self, errortype, msg, line, lineno):
         #Returns an error message in a tuple
-        return ('ERROR', '\n\n%s\n%s\nLine %s\n\'%s\'\n%s' % (self.FILE_PATH, errortype, lineno, line.rstrip('\n'), msg))
+        return ('ERROR', '\n\n%s\n%s\nLine %s\n\'%s\'\n%s\n\n' % (self.FILE_PATH, errortype, lineno, line.rstrip('\n'), msg))
 
 
     def handle_file(self, file_path):
@@ -318,13 +318,17 @@ class Crab:
             result = eval(instobj.args['arg1'])
             return float(result)
         except NameError as e:
-            return self.error('NameError', e, instobj.line, instobj.lineno)
+            return self.error('SyntaxError', 'Invalid \'cal\' syntax', instobj.line, instobj.lineno)
         except ZeroDivisionError as e:
             return self.error('ZeroDivisionError', e, instobj.line, instobj.lineno)
         except SyntaxError:
             return self.error('SyntaxError', 'Invalid \'cal\' syntax', instobj.line, instobj.lineno)
         except KeyError:
             return self.error('TypeError', 'Not enough \'cal\' input', instobj.line, instobj.lineno)
+        except TypeError as e:
+            return self.error('SyntaxError', 'Invalid \'cal\' syntax: %s' % e.__str__().capitalize(), instobj.line, instobj.lineno)
+
+
     def do_cout(self, instobj, lines, index): 
         print('\n', ' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))]), end='', sep='')
         return ''
@@ -393,13 +397,13 @@ class Crab:
             try:
                 return self.vars[instobj.args['arg1']][1]
             except KeyError as e:
-                return self.error('IndexError', '%s is not defined' % e, instobj.line, instobj.lineno)
+                return self.error('NameError', '%s is not defined' % e, instobj.line, instobj.lineno)
         elif len(instobj.args) >= 2:
             try:
                 indices = ''
                 for i in range(len(instobj.args) - 1):
                     arg = instobj.args['arg%s' % (i+2)]
-                    indices += '[%s]' % arg
+                    indices += '[%s]' % int(arg)
 
                 exec('self.do_get_var = self.vars[instobj.args[\'arg1\']][1]%s' % indices)
                 return self.do_get_var
@@ -443,7 +447,10 @@ class Crab:
                 for i in range(len(instobj.args)):
                     if i == 0:
                         continue
-                    args.append(instobj.args['arg%s' % (i+1)])
+                    if instobj.args['arg%s' % (i+1)].startswith('[') and instobj.args['arg%s' % (i+1)].endswith(']'):
+                        args.append(self.str2list(instobj.args['arg%s' % (i+1)]))
+                    else:
+                        args.append(instobj.args['arg%s' % (i+1)])
                 self.vars.update({'_%s_args' % instobj.args['arg1']: ['LIST', args]})
 
                 result = self.handle_lines(self.funcs[instobj.args['arg1']])
