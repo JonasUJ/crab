@@ -1,3 +1,7 @@
+# Standard libary for the Crab language
+# To include this libary: do 'use c' anywhere in your code 
+
+# Example function that prints the fibonacci numbers
 func def c.fib
     if {cond {len {get _c.fib_args}} >= 1}
         set c.fib_times {get _c.fib_args 0}
@@ -13,6 +17,7 @@ func def c.fib
         set c.fib_prev {get c.fib_tmp}
 
 
+# Appends an item to a list
 func def c.append
     if {cond {len {get _c.append_args}} != 2}
         return Not enough or too many arguments to c.append
@@ -22,4 +27,23 @@ func def c.append
             self.vars[self.vars['_c.append_args'][1][0]][1].append(self.vars['_c.append_args'][1][1])
         except:
             print(self.error('UnknownError', 'c.append didn\'t get the excepted arguments', '?', '?')[1])
+
+
+# Increments a variable x times
+func def c.incr
+    if {cond {len {get _c.incr_args}} == 2}
+        set c.incr_times {get _c.incr_args 1}
+    else
+        set c.incr_times 1
+    set {get _c.incr_args 0} {cal {get {get _c.incr_args 0}}+{get c.incr_times}}
+
+
+# Returns the sum of all numbers in a list
+func def c.sum
+    set c.sum_result 0
+    set c.sum_i 0
+    repeat {len {get {get _c.sum_args 0}}}
+        func c.incr c.sum_result {get {get _c.sum_args 0} {round {get c.sum_i}}}
+        func c.incr c.sum_i 1
+    return {endl}{get c.sum_result}
     

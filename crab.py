@@ -1,6 +1,5 @@
-#TODO: all commands, let if do cond, more loops (while, for in, etc.)
+#TODO: finish all commands, let if do cond, more loops (while, for in, etc.), attempt/instead statement, throw command
 
-import ast
 import copy
 import os
 import pprint
@@ -111,37 +110,38 @@ class Crab:
 
 
     def handle_inst(self, instobj, lines, index):
-        if self.validate_cmd(instobj.inst) and instobj.do:
-            for key, arg in list(instobj.args.items()):
+        ninstobj = copy.deepcopy(instobj)
+        if self.validate_cmd(ninstobj.inst) and ninstobj.do:
+            for key, arg in list(ninstobj.args.items()):
                 if '{' in arg:
                     embed = self.find_embed(arg, '{', '}')
 
                     for tup in reversed(embed):
                         new_inst = tup[0][1:len(tup[0])-1] if tup[0].startswith('{') and tup[0].endswith('}') else tup[0][1:] if tup[0].startswith('{') else tup[0][:len(tup[0])-1]
-                        parsed_line_instobj = self.parse_lines([new_inst], lineno=instobj.lineno, embedded_in=instobj.line, parent=instobj)[0]
-                        selfcall_outcome = self.handle_inst(parsed_line_instobj, False, False)
+                        parsed_line_ninstobj = self.parse_lines([new_inst], lineno=ninstobj.lineno, embedded_in=ninstobj.line, parent=ninstobj)[0]
+                        selfcall_outcome = self.handle_inst(parsed_line_ninstobj, False, False)
 
                         if type(selfcall_outcome) == tuple:
-                            if selfcall_outcome[0] == 'ERROR': 
-                                return selfcall_outcome
+                            if selfcall_outcome[0] == 'ERROR':
+                                return selfcall_outcome[1]
                             elif selfcall_outcome[0] == 'RETURN':
-                                instobj.args[key] = list(instobj.args[key])
-                                instobj.args[key][tup[1]: tup[2]] = list(str(selfcall_outcome))
-                                instobj.args[key] = ''.join(instobj.args[key])
-                                if instobj.parent:
-                                    if instobj.parent.inst == 'func':
-                                        return ('RETURN', self.COMMANDS[instobj.inst](instobj, lines, index), selfcall_outcome[2])
+                                ninstobj.args[key] = list(ninstobj.args[key])
+                                ninstobj.args[key][tup[1]: tup[2]] = list(str(selfcall_outcome))
+                                ninstobj.args[key] = ''.join(ninstobj.args[key])
+                                if ninstobj.parent:
+                                    if ninstobj.parent.inst == 'func':
+                                        return ('RETURN', self.COMMANDS[ninstobj.inst](ninstobj, lines, index), selfcall_outcome[2])
                                     else:
-                                        return self.error('SyntaxError', '\'return\' outside function', instobj.line, instobj.lineno)
+                                        return self.error('SyntaxError', '\'return\' outside function', ninstobj.line, ninstobj.lineno)
                         else:
-                            instobj.args[key] = list(instobj.args[key])
-                            instobj.args[key][tup[1]: tup[2]] = list(str(selfcall_outcome))
-                            instobj.args[key] = ''.join(instobj.args[key])
+                            ninstobj.args[key] = list(ninstobj.args[key])
+                            ninstobj.args[key][tup[1]: tup[2]] = list(str(selfcall_outcome))
+                            ninstobj.args[key] = ''.join(ninstobj.args[key])
 
-            return self.COMMANDS[instobj.inst](instobj, lines, index)
+            return self.COMMANDS[ninstobj.inst](ninstobj, lines, index)
         else:
-            if instobj.do:
-                return self.error('SyntaxError', 'Unknown command \'%s\'' % instobj.inst, instobj.line, instobj.lineno)
+            if ninstobj.do:
+                return self.error('SyntaxError', 'Unknown command \'%s\'' % ninstobj.inst, ninstobj.line, ninstobj.lineno)
             return ''
 
     
@@ -494,17 +494,18 @@ class Crab:
             return self.error('SyntaxError', 'Too many arguments to \'repeat\'', instobj.line, instobj.lineno)
         
         try:
+            parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj)
+            if type(parsed_lines) == tuple:
+                return parsed_lines[1]
+            else:
+                parsed_lines = [item for item in parsed_lines if item]
+            
             for i in range(int(float(instobj.args['arg1']))):
-                parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj)
-                if type(parsed_lines) == tuple:
-                    return parsed_lines[1]
-                else:
-                    parsed_lines = [item for item in parsed_lines if item]
-
                 outcome = self.handle_lines(parsed_lines)
                 if type(outcome) == tuple:
                     return outcome[1]
                 outcome = ''
+
             return outcome
         except ValueError:
             return self.error('ValueError', '\'repeat\' only takes whole numbers as an argument', instobj.line, instobj.lineno)
