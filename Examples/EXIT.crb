@@ -2,4 +2,6 @@
 # 'exit' doesn't care about arguments
 
 # Example
+
 exit
+cout This code doesn't run becasue the script terminated
