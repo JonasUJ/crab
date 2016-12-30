@@ -333,7 +333,7 @@ class Crab:
 
 
     def do_cout(self, instobj, lines, index): 
-        print('\n', ' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))]), end='', sep='')
+        print('\n', ' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))]), end='', sep='', flush=True)
         return ''
     def do_help(self, instobj, lines, index): return '\nhelp is not implemented'
     def do_py_exec(self, instobj, lines, index):
@@ -698,8 +698,7 @@ class Crab:
     def do_while(self, instobj, lines, index):
         if len(instobj.args) > 1:
             return self.error('SyntaxError', 'Too many arguments to \'while\'', instobj.line, instobj.lineno)
-        
-        #try:
+
         parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj)
         if type(parsed_lines) == tuple:
             return parsed_lines[1]
@@ -712,25 +711,26 @@ class Crab:
             if type(instobj.args['arg1']) == tuple:
                 return instobj.args['arg1']
 
-        
-        print(instobj.args['arg1'], ' <<< what it returned')
         if instobj.args['arg1'] not in self.BOOLS:
             return self.error('TypeError', '\'while\' only takes \'TRUE\' or \'FALSE\' as an argument', instobj.line, instobj.lineno)
         
         while instobj.args['arg1'] == 'TRUE':
-            pass
+            if instobj.args['arg1'] not in self.BOOLS:
+                return self.error('TypeError', '\'while\' only takes \'TRUE\' or \'FALSE\' as an argument', instobj.line, instobj.lineno)
 
-        '''
-        for i in range(int(float(instobj.args['arg1']))):
             outcome = self.handle_lines(parsed_lines)
+
+            if self.find_embed(lines[index].args['arg1'], '{', '}'):
+                ninstobj = self.parse_lines([lines[index].args['arg1'][1:-1]])[0]
+                instobj.args['arg1'] = self.handle_inst(ninstobj, lines, index)
+                if type(instobj.args['arg1']) == tuple:
+                    return instobj.args['arg1']
+
             if type(outcome) == tuple:
                 return outcome
             outcome = ''
 
         return outcome
-        '''
-        #except ValueError:
-        #    return self.error('TypeError', '\'while\' only takes \'TRUE\' or \'FALSE\' as an argument', instobj.line, instobj.lineno)
 
 sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crb')
 
