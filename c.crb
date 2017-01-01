@@ -1,22 +1,6 @@
 # Standard libary for the Crab language
 # To include this libary: do 'use c' anywhere in your code 
 
-# Example function that prints the fibonacci numbers
-func def c.fib
-    if {cond {len {get _c.fib_args}} >= 1}
-        set c.fib_times {get _c.fib_args 0}
-    else
-        set c.fib_times 8
-    
-    set c.fib_prev 0
-    set c.fib_next 1
-    repeat {get c.fib_times}
-        cout {round {cal {get c.fib_prev}+{get c.fib_next}}}
-        set c.fib_tmp {get c.fib_next}
-        set c.fib_next {cal {get c.fib_prev}+{get c.fib_next}}
-        set c.fib_prev {get c.fib_tmp}
-
-
 # Appends an item to a list
 func def c.append
     if {cond {len {get _c.append_args}} != 2}
