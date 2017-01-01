@@ -1,10 +1,10 @@
 # Mathematical libary for the Crab language
-# To include this libary: do 'use c' anywhere in your code 
+# To include this libary: do 'use math' anywhere in your code 
 
 # Define mathematical constants
-set PI 3.14159265359
-set E 2.71828182846
-set SQRT_2 1.41421356237
+set _PI 3.14159265359
+set _E 2.71828182846
+set _SQRT_2 1.41421356237
 
 # Function that returns the xth fibonacci number
 func def math.fib
@@ -19,7 +19,6 @@ func def math.fib
     set math.fib_prev 0
     set math.fib_next 1
     repeat {cal {get math.fib_times}-1}
-        #cout {round {cal {get math.fib_prev}+{get math.fib_next}}}
         set math.fib_tmp {get math.fib_next}
         set math.fib_next {cal {get math.fib_prev}+{get math.fib_next}}
         set math.fib_prev {get math.fib_tmp}

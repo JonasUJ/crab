@@ -1,12 +1,14 @@
 #TODO: finish all commands, let if do cond (maybe), more loops (while, for in, etc.)
-#TODO: attempt/instead statement, throw command, switch (maybe), read/write to a file 
-#TODO: stats, fix quotes, improve errors, 
+#TODO: attempt/instead statement, switch (maybe), read/write to a file 
+#TODO: stats, fix quotes, improve errors, more precompiler stuff
+#TODO: 
 
 import copy
 import os
 import pprint
 import sys
 import time
+import tempfile
 
 os.system('cls')
 time.sleep(0.05)
@@ -64,7 +66,8 @@ class Crab:
             'pass': self.do_pass,
             'endl': self.do_endl,
             'spc': self.do_spc,
-            'while': self.do_while
+            'while': self.do_while,
+            'throw': self.do_throw
             }
         
         #Variables
@@ -87,20 +90,55 @@ class Crab:
         return ('ERROR', '\n%s\n%s\nLine %s\n\'%s\'\n%s\n' % (origin_file, errortype, lineno, line.rstrip('\n'), msg))
 
 
+    def precompile_file(self, file_path):
+        
+        def parse_precompile_syntax(line):
+            result = {'cmd':'', 'values':[]}
+            split_line = line[1:].split(' ')
+            keywords = list()
+            for i in split_line:
+                if i != '':
+                    keywords.append(i[:-1] if i.endswith('\n') else i)
+
+            keywords.append('')
+            keywords.append('')
+
+            result['cmd'] = keywords[0]
+            result['values'] = keywords[1:]
+            return result
+
+        lines = list()
+        definitions = list()
+
+        with open(file_path, 'r', encoding='UTF-8') as fp:   
+            for line in fp.readlines():
+                if (line + ' ')[0] == '&':
+                    parsed = parse_precompile_syntax(line)
+
+                    if parsed['cmd'] == 'define':
+                        definitions.append((parsed['values'][0], ' '.join(parsed['values'][1:-2])))
+                else:
+                    lines.append(line)
+
+        for definition in definitions:
+            for i, line in enumerate(lines):
+                lines[i] = lines[i].replace(definition[0], definition[1])
+        
+        return lines
+
     def handle_file(self, file_path):
         self.FILE_NAME = os.path.basename(file_path)
         self.FILE_DIR = file_path.rstrip(self.FILE_NAME)
         past_file_path = self.FILE_PATH
         self.FILE_PATH = file_path
 
-        with open(file_path, 'r', encoding='UTF-8') as f:
-            lines = f.readlines()
+        lines = self.precompile_file(file_path)
 
         self.INDENTATION = self.find_indentation_value(lines)
 
         parsed_lines = self.parse_lines(lines, origin_file=file_path)
         if type(parsed_lines) == tuple:
-            return parsed_lines[1]
+            return parsed_lines
         else:
             parsed_lines = [item for item in parsed_lines if item]
             # PrettyPrints all lines in the script as objects
@@ -116,7 +154,7 @@ class Crab:
             result = self.handle_inst(instobj, lines, i)
             if type(result) == tuple:
                 if result[0] == 'ERROR':
-                    return result[1]
+                    return result
                 elif result[0] == 'RETURN':
                     return result
 
@@ -670,9 +708,10 @@ class Crab:
                 parsed_lines = [item for item in parsed_lines if item]
 
             result = self.handle_lines(parsed_lines)
+
             if type(result) == tuple:
                 if result[0] == 'ERROR':
-                    return result[1]
+                    return result
                 elif result[0] == 'RETURN':
                     return result
             return result
@@ -693,14 +732,14 @@ class Crab:
 
         parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj, origin_file=instobj.origin_file)
         if type(parsed_lines) == tuple:
-            return parsed_lines[1]
+            return parsed_lines
         else:
             parsed_lines = [item for item in parsed_lines if item]
         
         result = self.handle_lines(parsed_lines)
         if type(result) == tuple:
             if result[0] == 'ERROR':
-                return result[1]
+                return result
             elif result[0] == 'RETURN':
                 return result
         return result
@@ -738,7 +777,7 @@ class Crab:
 
         parsed_lines = self.parse_lines(instobj.contents, indentline=instobj.lineno, parent=instobj, origin_file=instobj.origin_file)
         if type(parsed_lines) == tuple:
-            return parsed_lines[1]
+            return parsed_lines
         else:
             parsed_lines = [item for item in parsed_lines if item]    
 
@@ -748,6 +787,7 @@ class Crab:
             if type(instobj.args['arg1']) == tuple:
                 return instobj.args['arg1']
         
+        outcome = ''
         while instobj.args['arg1'] == 'TRUE':
             outcome = self.handle_lines(parsed_lines)
 
@@ -766,6 +806,17 @@ class Crab:
 
         return outcome
 
+
+    def do_throw(self, instobj, lines, index):
+        errortype = instobj.args['arg1'] if 'arg1' in instobj.args else 'Error'
+        msg = ''
+        for i in range(2, len(instobj.args) + 1):
+            msg = msg + instobj.args['arg%s' % i] + ' '
+        if not msg:
+            msg = 'Encountered an error'
+        return self.error(errortype=errortype, msg=msg, instobj=instobj)
+        
+
 sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crb')
 
 if __name__ == '__main__':
@@ -775,7 +826,11 @@ if __name__ == '__main__':
         if cmd == 'run':
             start_time = time.time()
             crabber = Crab()
-            print(crabber.handle_file(sys.argv[1]), end='')
+            outcome = crabber.handle_file(sys.argv[1])
+            if type(outcome) == tuple:
+                print(outcome[1], end='')
+            else:
+                print(outcome, end='')
             finish_time = time.time()-start_time
         elif cmd == 'stats':
             print(

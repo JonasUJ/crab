@@ -1,0 +1,33 @@
+# Standard libary for the Crab language
+# To include this libary: do 'use std' anywhere in your code 
+
+# Appends an item to a list
+func def std.append
+    if {cond {len {get _std.append_args}} != 2}
+        throw TypeError Not enough or too many arguments to std.append
+    
+    py_exec
+        try:
+            self.vars[self.vars['_std.append_args'][1][0]][1].append(self.vars['_std.append_args'][1][1])
+        except:
+            print(self.error('TypeError', 'std.append didn\'t get the excepted arguments', instobj=instobj)[1])
+
+
+# Increments a variable x times
+func def std.incr
+    if {cond {len {get _std.incr_args}} == 2}
+        set std.incr_times {get _std.incr_args 1}
+    else
+        set std.incr_times 1
+    set {get _std.incr_args 0} {cal {get {get _std.incr_args 0}}+{get std.incr_times}}
+
+
+# Returns the sum of all numbers in a list
+func def std.sum
+    set std.sum_result 0
+    set std.sum_i 0
+    repeat {len {get {get _std.sum_args 0}}}
+        func std.incr std.sum_result {get {get _std.sum_args 0} {round {get std.sum_i}}}
+        func std.incr std.sum_i 1
+    return {endl}{get std.sum_result}
+    
