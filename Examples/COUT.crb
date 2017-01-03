@@ -2,3 +2,7 @@
 
 # Example
 cout Hello World!
+
+#> Hello World!
+
+# NOTE: cout adds a newline to the string being printed, it also doesn't return anything

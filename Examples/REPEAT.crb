@@ -1,0 +1,21 @@
+# 'repeat' repeats a block of code x amount of times
+# It takes excatly 1 argument, which is have many times it should loop
+
+# Example:
+
+set i 10
+
+repeat {get i}
+    set i {cal {get i}-1}
+    cout {get i}
+
+#> 9.0
+#> 8.0
+#> 7.0
+#> 6.0
+#> 5.0
+#> 4.0
+#> 3.0
+#> 2.0
+#> 1.0
+#> 0.0

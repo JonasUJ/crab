@@ -1,0 +1,19 @@
+# An example of a recursive function
+# RECURSION IS NOT RECOMMENDED -- This example could have easliy been done with a 'repeat' loop
+
+&define ARG0_-1 {cal {get _count_down_args 0}-1}
+&define ARG1 {get _count_down_args 1}
+
+# Find all integers between the first and second argument
+func def count_down
+    cout {get _count_down_args 0}
+    if {cond ARG0_-1 > ARG1}
+        return {func count_down ARG0_-1 ARG1}
+
+# Ask for two integers
+func count_down {ask Count down from:{spc}} {ask Count down to:{spc}}
+
+# NOTE: The recursion limit is 1000 recursions
+# You can change the recursion limit by simply doing:
+# py_exec
+#     sys.setrecursionlimit([ new limit as an integer ])

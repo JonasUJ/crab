@@ -12,6 +12,7 @@ import tempfile
 
 os.system('cls')
 time.sleep(0.05)
+sys.setrecursionlimit(sys.getrecursionlimit() * 7 + 40)
 
 class Inst:
 
@@ -110,13 +111,15 @@ class Crab:
         lines = list()
         definitions = list()
 
-        with open(file_path, 'r', encoding='UTF-8') as fp:   
+        with open(file_path, 'r', encoding='UTF-8') as fp:
             for line in fp.readlines():
                 if (line + ' ')[0] == '&':
                     parsed = parse_precompile_syntax(line)
 
                     if parsed['cmd'] == 'define':
                         definitions.append((parsed['values'][0], ' '.join(parsed['values'][1:-2])))
+                    
+                    lines.append('\n')
                 else:
                     lines.append(line)
 
@@ -530,7 +533,13 @@ class Crab:
                         args.append(instobj.args['arg%s' % (i+1)])
                 self.vars.update({'_%s_args' % instobj.args['arg1']: ['LIST', args]})
 
-                result = self.handle_lines(self.funcs[instobj.args['arg1']])
+                try:
+                    result = self.handle_lines(self.funcs[instobj.args['arg1']])
+                except RecursionError:
+                    return self.error('RecursionError', 'Recursion limit reached', instobj=instobj)
+                except MemoryError:
+                    return self.error('RecursionError', 'Recursion limit reached', instobj=instobj)
+
                 if type(result) == tuple:
                     if result[0] == 'ERROR':
                         return result
