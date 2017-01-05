@@ -1,0 +1,17 @@
+# 'endl' returns x 'newlines' (whitespace)
+# 'endl' takes 0 or 1 arguments
+# 0 arguments will result in 1 newline
+# 1 argument will result in x newlines (even 0)
+
+# Example
+
+cout Hel{endl}lo{endl 5}World{endl}!
+
+#> Hel
+#  lo
+#
+#
+#
+#
+#  World
+#  !

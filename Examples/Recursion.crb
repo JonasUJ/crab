@@ -16,4 +16,4 @@ func count_down {ask Count down from:{spc}} {ask Count down to:{spc}}
 # NOTE: The recursion limit is 1000 recursions
 # You can change the recursion limit by simply doing:
 # py_exec
-#     sys.setrecursionlimit([ new limit as an integer ])
+#     sys.setrecursionlimit([new limit as an integer] * 7)

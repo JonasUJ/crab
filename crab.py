@@ -8,11 +8,10 @@ import os
 import pprint
 import sys
 import time
-import tempfile
 
 os.system('cls')
 time.sleep(0.05)
-sys.setrecursionlimit(sys.getrecursionlimit() * 7 + 40)
+sys.setrecursionlimit(7040)
 
 class Inst:
 
@@ -47,12 +46,10 @@ class Crab:
             'exit': self.do_exit, 
             'cal': self.do_cal, 
             'cout': self.do_cout,
-            'help': self.do_help,
             'py_exec': self.do_py_exec, 
             'create': self.do_create, 
             'set': self.do_set, 
             'get': self.do_get, 
-            'open': self.do_open,
             'func': self.do_func,
             'wait': self.do_wait,
             'round': self.do_round,
@@ -68,7 +65,8 @@ class Crab:
             'endl': self.do_endl,
             'spc': self.do_spc,
             'while': self.do_while,
-            'throw': self.do_throw
+            'throw': self.do_throw,
+            'read': self.do_read
             }
         
         #Variables
@@ -128,6 +126,7 @@ class Crab:
                 lines[i] = lines[i].replace(definition[0], definition[1])
         
         return lines
+
 
     def handle_file(self, file_path):
         self.FILE_NAME = os.path.basename(file_path)
@@ -327,8 +326,8 @@ class Crab:
             return True
         else: return False
 
-    def find_indentation_value(self, lines):
 
+    def find_indentation_value(self, lines):
         for index, line in enumerate(lines):
             if line.startswith(' ') and line.strip(' ') != '\n' and line.strip(' ') != '' :
                 if not lines[index - 1].startswith(' '):
@@ -339,6 +338,7 @@ class Crab:
                         tok = line[i]
                     return i
         return 4
+
 
     def validate_cmd(self, cmd):
         if cmd in self.COMMANDS: return True
@@ -384,10 +384,11 @@ class Crab:
         return l
 
 
-
     def do_exit(self, instobj, lines, index):
         exit()
         return ''
+
+
     def do_cal(self, instobj, lines, index):
         try:
             result = eval(instobj.args['arg1'])
@@ -404,10 +405,11 @@ class Crab:
             return self.error('SyntaxError', 'Invalid \'cal\' syntax: %s' % e.__str__().capitalize(), instobj=instobj)
 
 
-    def do_cout(self, instobj, lines, index): 
+    def do_cout(self, instobj, lines, index):
         print('\n', ' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))]), end='', sep='', flush=True)
         return ''
-    def do_help(self, instobj, lines, index): return '\nhelp is not implemented'
+
+
     def do_py_exec(self, instobj, lines, index):
         try:
             result = exec('\n'.join(instobj.contents))
@@ -483,12 +485,15 @@ class Crab:
                 indices = ''
                 for i in range(len(instobj.args) - 1):
                     arg = instobj.args['arg%s' % (i+2)]
-                    indices += '[%s]' % int(arg)
+                    try:
+                        indices += '[%s]' % int(arg)
+                    except ValueError:
+                        indices += '[%s]' % arg
 
                 exec('self.do_get_var = self.vars[instobj.args[\'arg1\']][1]%s' % indices)
                 return self.do_get_var
-            except ValueError:
-                return self.error('ValueError', 'Can\'t get index \'%s\'' % instobj.args['arg2'], instobj=instobj)
+            except ValueError as e:
+                return self.error('ValueError', 'Can\'t get index \'%s\' (%s)' % (instobj.args['arg2'], e), instobj=instobj)
             except KeyError as e:
                 return self.error('NameError', '%s is not defined' % e, instobj=instobj)
             except SyntaxError:
@@ -501,7 +506,6 @@ class Crab:
             return self.error('SyntaxError', 'Too few arguments to \'get\' excpeted at least 1', instobj=instobj)
 
 
-    def do_open(self, instobj, lines, index): return '\nopen is not implemented'
     def do_func(self, instobj, lines, index):
         if len(instobj.args) < 1:
             return self.error('SyntaxError', 'Too few arguments to \'func\'', instobj.line, instobj.lineno)
@@ -556,14 +560,16 @@ class Crab:
         if len(instobj.args) > 1:
             return self.error('SyntaxError', 'Too many arguments to \'wait\'', instobj.line, instobj.lineno)
         try:
-            wait_time = time.time() + int(instobj.args['arg1'])
+            wait_time = time.time() + float(instobj.args['arg1'])
             while time.time() < wait_time:
-                time.sleep(0.01)
+                time.sleep(0.0001)
         except ValueError:
             return self.error('SyntaxError', 'Can\'t wait \'%s\' seconds' % instobj.args['arg1'], instobj.line, instobj.lineno)
         except OverflowError:
             return self.error('SyntaxError', 'Can\'t wait \'%s\' seconds' % instobj.args['arg1'], instobj.line, instobj.lineno)
         return ''
+
+
     def do_round(self, instobj, lines, index):
         try:
             if len(instobj.args) == 1:
@@ -574,8 +580,10 @@ class Crab:
             return self.error('SyntaxError', 'All arguments to \'round\' must be numbers', instobj.line, instobj.lineno)
         return rounded
 
-    def do_ask(self, instobj, lines, index): 
+
+    def do_ask(self, instobj, lines, index):
         return input((' '.join([instobj.args['arg%s' % (x+1)] for x in range(len(instobj.args))])))
+
 
     def do_repeat(self, instobj, lines, index):
         if len(instobj.args) > 1:
@@ -620,14 +628,13 @@ class Crab:
         elif instobj.args['arg1'] + '.crb' in [self.FILE_NAME, self.FILE_PATH]:
             return self.error('UseError', 'Can\'t \'use\' self', instobj.line, instobj.lineno)
 
-        try:
+        if os.path.exists(self.FILE_DIR + instobj.args['arg1'] + '.crb'):
             return self.handle_file(self.FILE_DIR + instobj.args['arg1'] + '.crb')
-        except PermissionError:
-            try:
-                return self.handle_file(instobj.args['arg1'])
-            except PermissionError:
-                return self.error('UseError', 'Couldn\'t find module \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
-        return ''
+        elif os.path.exists(instobj.args['arg1']):
+            return self.handle_file(instobj.args['arg1'])
+        else:
+            return self.error('FileError', 'Couldn\'t find file \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
+
 
     def do_cond(self, instobj, lines, index):
         if len(instobj.args) == 2:
@@ -705,6 +712,7 @@ class Crab:
         else:
             return self.error('SyntaxError', 'There is no such logic gate/comparison operator: \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
 
+
     def do_if(self, instobj, lines, index):
         if len(instobj.args) != 1:
             return self.error('SyntaxError', '\'if\' takes 1 argument, but got %s' % len(instobj.args), instobj.line, instobj.lineno)
@@ -766,19 +774,25 @@ class Crab:
             return self.error('SyntaxError', 'Too many arguments to \'len\'', instobj.line, instobj.lineno)
         
         return instobj.args
+
+
     def do_pass(self, instobj, lines, index):
         return ''
+
+
     def do_spc(self, instobj, lines, index):
         try:
             return ' ' * (int(instobj.args['arg1']) if len(instobj.args) >= 1 else 1)
         except ValueError:
             return self.error('ValueError', '\'spc\' only takes a number as an argument (got \'%s\')' % instobj.args['arg1'], instobj=instobj)
 
+
     def do_endl(self, instobj, lines, index):
         try:
             return '\n' * (int(instobj.args['arg1']) if len(instobj.args) >= 1 else 1)
         except ValueError:
             return self.error('ValueError', '\'endl\' only takes a number as an argument (got \'%s\')' % instobj.args['arg1'], instobj=instobj)
+
 
     def do_while(self, instobj, lines, index):
         if len(instobj.args) > 1:
@@ -825,6 +839,29 @@ class Crab:
             msg = 'Encountered an error'
         return self.error(errortype=errortype, msg=msg, instobj=instobj)
         
+
+    def do_read(self, instobj, lines, index):
+        if len(instobj.args) == 1:
+            instobj.args['arg2'] = 'LIST'
+        elif len(instobj.args) != 2:
+            return self.error('SyntaxError', '\'read\' got too few or too many arguments', instobj=instobj)
+        
+        to_open = ''
+        if os.path.exists(self.FILE_DIR + instobj.args['arg1']):
+            to_open = self.FILE_DIR + instobj.args['arg1']
+        elif os.path.exists(instobj.args['arg1']):
+            to_open = instobj.args['arg1']
+        else:
+            return self.error('FileError', 'Couldn\'t find file \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
+                
+        with open(to_open, 'r') as fp:
+            if instobj.args['arg2'] == 'LIST':
+                return fp.readlines()
+            elif instobj.args['arg2'] == 'STR':
+                return fp.read()
+            else:
+                return self.error('ValueError', 'Can\'t return type \'%s\'' % instobj.args['arg2'], instobj=instobj)
+
 
 sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crb')
 

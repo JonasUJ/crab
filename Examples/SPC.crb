@@ -1,0 +1,10 @@
+# 'spc' returns x 'spaces' (whitespace)
+# 'spc' takes 0 or 1 arguments
+# 0 arguments will result in 1 spaces
+# 1 argument will result in x spaces (even 0)
+
+# Example
+
+cout Hel{spc}lo{spc 5}World{spc}!
+
+#> Hel lo     World !
