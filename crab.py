@@ -1,6 +1,6 @@
-#TODO: finish all commands, let if do cond (maybe), more loops (while, for in, etc.)
-#TODO: attempt/instead statement, switch (maybe), read/write to a file 
-#TODO: stats, fix quotes, improve errors, more precompiler stuff
+#TODO: finish all commands, let if do cond (maybe), more loops (for in, etc.)
+#TODO: attempt/instead statement, switch (maybe), write to a file 
+#TODO: fix quotes, improve errors, more precompiler stuff
 #TODO: 
 
 import copy
@@ -637,6 +637,12 @@ class Crab:
 
 
     def do_cond(self, instobj, lines, index):
+        for arg in instobj.args:
+            try:
+                instobj.args[arg] = float(instobj.args[arg])
+            except ValueError as e:
+                pass
+                
         if len(instobj.args) == 2:
             if instobj.args['arg1'] == 'not':
                 if not (instobj.args['arg2'] == 'TRUE'): return 'TRUE'
