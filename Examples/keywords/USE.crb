@@ -1,0 +1,21 @@
+# 'use' finds and runs a .crb file
+# It takes exactly one argument
+
+# There's two ways to tell it what file to run
+# 1. 'use file' or 'use folder1/folder2/file'
+#   This looks for the file/folders in this directory
+# 2. 'use C:/folder1/folder2/file'
+#   This looks for the file at the given path
+
+# This is intended to be used as 'import' in Python or 'using' in C# etc.
+# Therefore a file could function as a module if it only contains functions
+
+# Here is a function which is 'use'd in 'Modules.crb'
+
+cout USE.crb was 'use'd {endl}
+
+func def USE.Table
+    set i 0
+    repeat 10
+        set i {cal {get i}+{get _USE.Table_args 0}}
+        cout {get i}

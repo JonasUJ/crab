@@ -1,0 +1,19 @@
+# Crab currently comes with two modules 'std' and 'math'
+# Both are work in progress
+# A module can be used with the 'use' keyword
+
+# When creating a module
+# good practice is naming the modules functions the file name dot their name
+# as with 'std' with the function 'std.incr'
+# This is to avoid name collision
+
+# Example of using other files
+
+use keywords/USE
+use Recursion
+
+# This ran the two files and any defined functions and variables
+# are still available
+
+cout {endl}
+func USE.Table 5

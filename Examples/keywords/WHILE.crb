@@ -1,0 +1,16 @@
+# 'while' is a loop that could potentially run forever
+# It takes one argument, TRUE or FALSE
+# If the argument is TRUE it will run the code inside the statement
+# If it is FALSE it wont
+
+# 'while' can be view as an if statement that keeps going until its condition is no longer TRUE
+
+# Examples
+
+set answer 8
+set guess 0
+
+while {cond {get guess} != {get answer}}
+    set guess {ask Guess the number:{spc}}
+
+cout You guessed it

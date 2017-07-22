@@ -30,4 +30,11 @@ func def std.sum
         func std.incr std.sum_result {get {get _std.sum_args 0} {round {get std.sum_i}}}
         func std.incr std.sum_i 1
     return {endl}{get std.sum_result}
-    
+
+
+# Return a random number between arg0 and arg1
+func def std.rand
+    set std.randNum 0
+    py_exec
+        self.vars['std.randNum'] = ('STR', random.randrange(int(self.vars['_std.rand_args'][1][0]), int(self.vars['_std.rand_args'][1][1])))
+    return {get std.randNum}

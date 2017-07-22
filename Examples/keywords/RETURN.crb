@@ -1,0 +1,13 @@
+# 'return' is used within a 'func' statement
+# It takes any amount of arguments
+# It throws a SyntaxError if it is outside a 'func' statement
+
+# Examples
+
+func def Add
+    return {cal {get _Add_args 0}+{get _Add_args 1}}
+
+set sum {func Add 3 17}
+cout {get sum}
+
+#> 20.0

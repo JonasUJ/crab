@@ -1,0 +1,34 @@
+# 'py_exec' executes python code
+# It takes no arguments, but can contain code like an 'if' statement
+
+# Examples
+
+set var1 Foo
+
+py_exec
+    print('FooBar')
+    print(self.vars)
+    self.vars['var1'][1] = 'Bar'
+
+cout {get var1}
+
+#> FooBar
+#> {'var1': ['STR', 'Foo']}
+#>
+#> Bar
+
+# 'py_exec' throws a PythonError if it contains invalid Python
+
+# Examples
+
+py_exec
+    NotDefined
+
+#> \crab\Examples\PY_EXEC.crb
+#> PythonError
+#> Line 24
+#> 'Below exception was thrown by Python'
+#> name 'NotDefined' is not defined
+
+# 'py_exec' can be used to add functionality to Crab
+# But it can be dangerous since it directly affects the Crab source code

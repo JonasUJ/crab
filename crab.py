@@ -1,6 +1,8 @@
+# WHY DID I CREATE SOMETHING THIS HUGELY INEFFECTIVE AND INEFFICIENT?
+
 #TODO: finish all commands, let if do cond (maybe), more loops (for in, etc.)
 #TODO: attempt/instead statement, switch (maybe), write to a file 
-#TODO: fix quotes, improve errors, more precompiler stuff
+#TODO: fix quotes, more precompiler functionalty
 #TODO: 
 
 import copy
@@ -8,6 +10,7 @@ import os
 import pprint
 import sys
 import time
+import random
 
 os.system('cls')
 time.sleep(0.05)
@@ -129,8 +132,11 @@ class Crab:
 
 
     def handle_file(self, file_path):
+        # THIS IS WHAT I AM TALKING ABOUT
+        # WHY AM I REDEFINING CONSTANTS?
         self.FILE_NAME = os.path.basename(file_path)
-        self.FILE_DIR = file_path.rstrip(self.FILE_NAME)
+        if not self.FILE_DIR:
+            self.FILE_DIR = file_path.rstrip(self.FILE_NAME)
         past_file_path = self.FILE_PATH
         self.FILE_PATH = file_path
 
@@ -294,7 +300,7 @@ class Crab:
                             inst.do = False
                     else:
                         if token[:-1] != '':
-                            inst.args['arg%s' % cur_arg] = token[:-1]
+                            inst.args['arg%s' % cur_arg] = token[:-1].strip('"')
                             cur_arg += 1
                     token = ''
                 elif tok == '{': embeds += 1
@@ -346,10 +352,13 @@ class Crab:
 
     
     def str2list(self, s):
-        if not (s.startswith('[') and s.endswith(']')):
-            return False       
-        elif s == '[]':
-            return []
+        try:
+            if not (s.startswith('[') and s.endswith(']')):
+                return False       
+            elif s == '[]':
+                return []
+        except AttributeError:
+            return False
 
         s = s[1:]
         l = []
@@ -380,8 +389,16 @@ class Crab:
                     t += tok
 
         if len(s) > 0 and len(l) == 0:
-            return False 
-        return l
+            return False
+
+        nl = list()
+        for item in l:
+            try:
+                nl.append(float(item))
+            except:
+                nl.append(item)
+
+        return nl
 
 
     def do_exit(self, instobj, lines, index):
@@ -627,7 +644,6 @@ class Crab:
             return self.error('SyntaxError', 'Too many or too few arguments to \'use\'', instobj.line, instobj.lineno)
         elif instobj.args['arg1'] + '.crb' in [self.FILE_NAME, self.FILE_PATH]:
             return self.error('UseError', 'Can\'t \'use\' self', instobj.line, instobj.lineno)
-
         if os.path.exists(self.FILE_DIR + instobj.args['arg1'] + '.crb'):
             return self.handle_file(self.FILE_DIR + instobj.args['arg1'] + '.crb')
         elif os.path.exists(instobj.args['arg1']):
@@ -705,10 +721,13 @@ class Crab:
         elif instobj.args['arg2'] == 'in':
             arg1 = self.str2list(instobj.args['arg1'])
             arg3 = self.str2list(instobj.args['arg3'])
+
             if not arg1:
                 arg1 = instobj.args['arg1']
+        
             if not arg3:
                 arg3 = instobj.args['arg3']
+
             try:
                 if arg1 in arg3: return 'TRUE'
                 else: return 'FALSE'
@@ -868,8 +887,6 @@ class Crab:
             else:
                 return self.error('ValueError', 'Can\'t return type \'%s\'' % instobj.args['arg2'], instobj=instobj)
 
-
-sys.argv.append(r'C:\Users\jonas\OneDrive\Dokumenter\GitHub\crab\f.crb')
 
 if __name__ == '__main__':
     cmds = ['stats', 'run']

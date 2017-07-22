@@ -1,0 +1,12 @@
+# 'pass' does nothing
+# It doesn't care about arguments
+# It returns nothing
+
+# Examples
+
+set var FALSE
+
+if {cond TRUE and {get var}}
+    pass 1 2 3
+else
+    cout {pass}

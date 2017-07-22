@@ -1,0 +1,12 @@
+# 'len' return the length of its argument
+# It takes one argument, it can be any type
+
+# Examples
+
+set str "Hello World!"
+set list [1, 2, 3, 4]
+set bool TRUE
+
+cout {len {get str}} {len {get list}} {len {get bool}}
+
+#> 14 4 1
