@@ -1,4 +1,4 @@
-# Introduction
+2# Introduction
 It's called Crab because it can be confused with crap.
 This started as a console replica, but as with the Windows console, you can create .bat files which will execute a bunch of commands automatically. I soon realized that this could become some sort of language, but it didn't quite work as i wanted it to, so i started anew and abandon the old project: https://github.com/JonasUJ/console
 
@@ -28,7 +28,10 @@ Which doesn't return anything, but `cout` outputs its arguments to the console. 
 cout {cal 5 * {cal 5 - 3}}
 ```
 This outputs 10.
-Embedded embeds are executed recursivly from back to front inside out (if that makes sense).
+Embedded embeds are executed recursivly from back to front inside out, if that makes sense. Here the are labelled 1-6 in order of execution:
+```
+6 {5 {3 {2} {1}} {4}}
+```
 
 # Documentation
 For documentation on what commands exists and how keywords behave take a look in the examples folder https://github.com/JonasUJ/crab/examples
