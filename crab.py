@@ -1,9 +1,8 @@
 # WHY DID I CREATE SOMETHING THIS HUGELY INEFFECTIVE AND INEFFICIENT?
 
-#TODO: finish all commands, let if do cond (maybe), more loops (for in, etc.)
+#TODO: finish all commands, let if do cond (maybe), more loops (foreach, etc.)
 #TODO: attempt/instead statement, switch (maybe), write to a file 
-#TODO: fix quotes, more precompiler functionalty
-#TODO: 
+#TODO: further fix quotes, more precompiler functionalty, config file (maybe)
 
 import copy
 import os
@@ -49,8 +48,7 @@ class Crab:
             'exit': self.do_exit, 
             'cal': self.do_cal, 
             'cout': self.do_cout,
-            'py_exec': self.do_py_exec, 
-            'create': self.do_create, 
+            'py_exec': self.do_py_exec,  
             'set': self.do_set, 
             'get': self.do_get, 
             'func': self.do_func,
@@ -69,7 +67,8 @@ class Crab:
             'spc': self.do_spc,
             'while': self.do_while,
             'throw': self.do_throw,
-            'read': self.do_read
+            'read': self.do_read,
+            'write': self.do_write
             }
         
         #Variables
@@ -78,6 +77,7 @@ class Crab:
         self.do_get_var = str()
         self.inst_handles = int()
         self.files_encountered = list()
+        self.used_files = list()
         self.errors_thrown = int()
 
 
@@ -351,7 +351,7 @@ class Crab:
         return False
 
     
-    def str2list(self, s):
+    def strToList(self, s):
         try:
             if not (s.startswith('[') and s.endswith(']')):
                 return False       
@@ -372,7 +372,7 @@ class Crab:
                 t += tok
 
                 if not b:
-                    l.append(self.str2list('[' + t))
+                    l.append(self.strToList('[' + t))
                     t = ''
                     
             else:
@@ -435,12 +435,11 @@ class Crab:
             return self.error('PythonError', e, 'Below exception was thrown by Python', instobj=instobj)
 
 
-    def do_create(self, instobj, lines, index): return '\ncreate is not implemented'
     def do_set(self, instobj, lines, index): 
         try:
             if len(instobj.args) == 2:
                 if instobj.args['arg2'].startswith('[') and instobj.args['arg2'].endswith(']'):
-                    self.vars.update({instobj.args['arg1']: ['LIST', self.str2list(instobj.args['arg2'])]})
+                    self.vars.update({instobj.args['arg1']: ['LIST', self.strToList(instobj.args['arg2'])]})
                 elif instobj.args['arg2'] in self.BOOLS:
                     self.vars.update({instobj.args['arg1']: ['BOOL', instobj.args['arg2']]})
                 else:
@@ -454,7 +453,7 @@ class Crab:
                         arg = instobj.args['arg%s' % (i+2)]
                         indices += '[%s]' % arg
 
-                    cmd = 'self.vars[instobj.args[\'arg1\']][1]%s = self.str2list(instobj.args[\'arg%s\'])' % (indices, len(instobj.args))
+                    cmd = 'self.vars[instobj.args[\'arg1\']][1]%s = self.strToList(instobj.args[\'arg%s\'])' % (indices, len(instobj.args))
                     exec(cmd)  
 
                 else:
@@ -503,8 +502,8 @@ class Crab:
                 for i in range(len(instobj.args) - 1):
                     arg = instobj.args['arg%s' % (i+2)]
                     try:
-                        indices += '[%s]' % int(arg)
-                    except ValueError:
+                        indices += '[%s]' % int(float(arg))
+                    except ValueError as e:
                         indices += '[%s]' % arg
 
                 exec('self.do_get_var = self.vars[instobj.args[\'arg1\']][1]%s' % indices)
@@ -549,7 +548,7 @@ class Crab:
                     if i == 0:
                         continue
                     if instobj.args['arg%s' % (i+1)].startswith('[') and instobj.args['arg%s' % (i+1)].endswith(']'):
-                        args.append(self.str2list(instobj.args['arg%s' % (i+1)]))
+                        args.append(self.strToList(instobj.args['arg%s' % (i+1)]))
                     else:
                         args.append(instobj.args['arg%s' % (i+1)])
                 self.vars.update({'_%s_args' % instobj.args['arg1']: ['LIST', args]})
@@ -644,12 +643,27 @@ class Crab:
             return self.error('SyntaxError', 'Too many or too few arguments to \'use\'', instobj.line, instobj.lineno)
         elif instobj.args['arg1'] + '.crb' in [self.FILE_NAME, self.FILE_PATH]:
             return self.error('UseError', 'Can\'t \'use\' self', instobj.line, instobj.lineno)
+
+        selfFileName = os.path.basename(sys.argv[0])
+        selfFileDir = sys.argv[0].rstrip(selfFileName)
+        thisFile = str()
+        if not os.path.normpath(sys.argv[1]) in self.used_files:
+            self.used_files.append(os.path.normpath(sys.argv[1]))
+
         if os.path.exists(self.FILE_DIR + instobj.args['arg1'] + '.crb'):
-            return self.handle_file(self.FILE_DIR + instobj.args['arg1'] + '.crb')
+            thisFile = self.FILE_DIR + instobj.args['arg1'] + '.crb'
+        elif os.path.exists(selfFileDir + instobj.args['arg1'] + '.crb'):
+            thisFile = selfFileDir + instobj.args['arg1'] + '.crb'
         elif os.path.exists(instobj.args['arg1']):
-            return self.handle_file(instobj.args['arg1'])
+            thisFile = instobj.args['arg1']
         else:
             return self.error('FileError', 'Couldn\'t find file \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
+
+        if os.path.normpath(thisFile) in self.used_files:
+            return ''    
+
+        self.used_files.append(os.path.normpath(thisFile))
+        return self.handle_file(thisFile)
 
 
     def do_cond(self, instobj, lines, index):
@@ -669,73 +683,76 @@ class Crab:
         elif len(instobj.args) != 3:
             return self.error('SyntaxError', '\'cond\' takes exactly 3 arguments', instobj.line, instobj.lineno)
 
-
-        if instobj.args['arg2'] == '==':
-            if instobj.args['arg1'] == instobj.args['arg3']: return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == '<=':
-            if instobj.args['arg1'] <= instobj.args['arg3']: return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == '>=':
-            if instobj.args['arg1'] >= instobj.args['arg3']: return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == '!=':
-            if instobj.args['arg1'] != instobj.args['arg3']: return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == '<':
-            if instobj.args['arg1'] < instobj.args['arg3']: return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == '>':
-            if instobj.args['arg1'] > instobj.args['arg3']: return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == 'and':
-            if instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE': return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == 'or':
-            if instobj.args['arg1'] == 'TRUE' or instobj.args['arg3'] == 'TRUE': return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == 'xor':
-            if (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'FALSE') or (instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'TRUE'): return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == 'nand':
-            if not (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE'): return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == 'nor':
-            if instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'FALSE': return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == 'xnor':
-            if (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE') or (instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'FALSE'): return 'TRUE'
-            else: return 'FALSE'
-
-        elif instobj.args['arg2'] == 'in':
-            arg1 = self.str2list(instobj.args['arg1'])
-            arg3 = self.str2list(instobj.args['arg3'])
-
-            if not arg1:
-                arg1 = instobj.args['arg1']
-        
-            if not arg3:
-                arg3 = instobj.args['arg3']
-
-            try:
-                if arg1 in arg3: return 'TRUE'
+        try:
+            if instobj.args['arg2'] == '==':
+                if instobj.args['arg1'] == instobj.args['arg3']: return 'TRUE'
                 else: return 'FALSE'
-            except TypeError:
-                return 'FALSE'
 
-        else:
-            return self.error('SyntaxError', 'There is no such logic gate/comparison operator: \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
+            elif instobj.args['arg2'] == '<=':
+                if instobj.args['arg1'] <= instobj.args['arg3']: return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == '>=':
+                if instobj.args['arg1'] >= instobj.args['arg3']: return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == '!=':
+                if instobj.args['arg1'] != instobj.args['arg3']: return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == '<':
+                if instobj.args['arg1'] < instobj.args['arg3']: return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == '>':
+                if instobj.args['arg1'] > instobj.args['arg3']: return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == 'and':
+                if instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE': return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == 'or':
+                if instobj.args['arg1'] == 'TRUE' or instobj.args['arg3'] == 'TRUE': return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == 'xor':
+                if (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'FALSE') or (instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'TRUE'): return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == 'nand':
+                if not (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE'): return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == 'nor':
+                if instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'FALSE': return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == 'xnor':
+                if (instobj.args['arg1'] == 'TRUE' and instobj.args['arg3'] == 'TRUE') or (instobj.args['arg1'] == 'FALSE' and instobj.args['arg3'] == 'FALSE'): return 'TRUE'
+                else: return 'FALSE'
+
+            elif instobj.args['arg2'] == 'in':
+                arg1 = self.strToList(instobj.args['arg1'])
+                arg3 = self.strToList(instobj.args['arg3'])
+
+                if not arg1:
+                    arg1 = instobj.args['arg1']
+            
+                if not arg3:
+                    arg3 = instobj.args['arg3']
+
+                try:
+                    if arg1 in arg3: return 'TRUE'
+                    else: return 'FALSE'
+                except TypeError:
+                    return 'FALSE'
+
+            else:
+                return self.error('SyntaxError', 'There is no such logic gate/comparison operator: \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
+              
+        except TypeError:
+            return self.error('TypeError', 'Cannot compare diffrent types', instobj=instobj)
 
 
     def do_if(self, instobj, lines, index):
@@ -790,7 +807,7 @@ class Crab:
     def do_len(self, instobj, lines, index):
         if len(instobj.args) == 1:
             if instobj.args['arg1'].startswith('[') and instobj.args['arg1'].endswith(']'):
-                return len(self.str2list(instobj.args['arg1']))
+                return len(self.strToList(instobj.args['arg1']))
             elif instobj.args['arg1'] in self.BOOLS:
                 return '1'
             else:
@@ -870,7 +887,7 @@ class Crab:
             instobj.args['arg2'] = 'LIST'
         elif len(instobj.args) != 2:
             return self.error('SyntaxError', '\'read\' got too few or too many arguments', instobj=instobj)
-        
+
         to_open = ''
         if os.path.exists(self.FILE_DIR + instobj.args['arg1']):
             to_open = self.FILE_DIR + instobj.args['arg1']
@@ -878,14 +895,38 @@ class Crab:
             to_open = instobj.args['arg1']
         else:
             return self.error('FileError', 'Couldn\'t find file \'%s\'' % instobj.args['arg1'], instobj.line, instobj.lineno)
-                
-        with open(to_open, 'r') as fp:
+
+        with open(to_open, 'r', encoding='utf-8') as fp:
             if instobj.args['arg2'] == 'LIST':
                 return fp.readlines()
             elif instobj.args['arg2'] == 'STR':
                 return fp.read()
             else:
                 return self.error('ValueError', 'Can\'t return type \'%s\'' % instobj.args['arg2'], instobj=instobj)
+
+
+    def do_write(self, instobj, lines, index):
+        if len(instobj.args) != 2:
+            return self.error('SyntaxError', '\'write\' got too few or too many arguments, requires 2', instobj=instobj)
+
+        try:
+            f = open(instobj.args['arg1'], 'w')
+        except:
+            return self.error('OSError', 'Unable to write to file', instobj=instobj)
+        else:
+            with f:
+                try:
+                    if self.strToList(instobj.args['arg2']):
+
+                        for item in self.strToList(instobj.args['arg2']):
+                            f.write(str(item).replace('\\n', '\n').replace('\\t', '\t'))             
+                    else:
+                        f.write(instobj.args['arg2'])
+                except TypeError:
+                    return self.error('TypeError', 'Only strings can be written to file', instobj=instobj)   
+            f.close()
+
+        return ''
 
 
 if __name__ == '__main__':

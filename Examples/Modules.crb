@@ -9,11 +9,10 @@
 
 # Example of using other files
 
+use std
 use keywords/USE
-use Recursion
 
 # This ran the two files and any defined functions and variables
 # are still available
 
-cout {endl}
 func USE.Table 5
