@@ -2,6 +2,9 @@
 It's called Crab because it can be confused with crap. Why you'd ever use this for anything is beyond my comprehension, but here it is nonetheless.
 This started as a console replica, but as with the Windows console, you can create .bat files which will execute a bunch of commands automatically. I soon realized that this could become some sort of language, but it didn't quite work as i wanted it to, so i started anew and abandon the old project: https://github.com/JonasUJ/console
 
+### NOTE
+About 1 year later me speaking: My adventures on the internet took me across LISP... This seems to be almost the same language as Crab ¯\\_(ツ)_/¯, what can I say other than that someone obviously stole my idea.
+
 # Crab
 The new project is a bunch of methods and a parser that calls the methods. The keyword `cal` has a specific method `do_cal` which is called when the parser finds a `cal` in the code. The methods also get some arguments, ofcourse, `cal 2 * 4` calls `do_cal` with the arguments `2`, `*` and `4`. `do_cal` then does something and returns a value, the value is then directly placed in the code and the parser moves on.
 
@@ -36,4 +39,4 @@ Embedded embeds are executed recursivly from back to front inside out, if that m
 ```
 
 # Documentation
-For documentation on what commands exists and how keywords behave take a look in the examples folder https://github.com/JonasUJ/crab/examples
+For documentation on what commands exists and how keywords behave take a look in the examples folder https://github.com/JonasUJ/crab/tree/master/Examples
