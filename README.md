@@ -35,7 +35,7 @@ cout {cal 5 * {cal 5 - 3}}
 This outputs 10.
 Embedded embeds are executed recursivly from back to front inside out, if that makes sense. Here the are labelled 1-6 in order of execution:
 ```
-6 {5 {3 {2} {1}} {4}}
+6 {5 {4 {2} {1}} {3}}
 ```
 
 # Documentation
