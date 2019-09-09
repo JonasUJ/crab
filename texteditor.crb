@@ -1,0 +1,24 @@
+use std
+
+set toEdit {ask File to edit:{spc}}
+set i 0
+
+set content {read {get toEdit}}
+repeat {len {get content}}
+    func std.incr i
+    cout {round {get i}} {spc {round {cal 5-{len {get i}}}}} {get content {cal {get i}-1} :-2}
+cout {spc 0}
+
+while TRUE
+    func std.incr i
+
+    set toWrite {ask {round {get i}} {spc {round {cal 6-{len {get i}}}}}}
+    set prev {read {get toEdit} STR}
+    set final [{get prev}]
+
+    if {cond {len {get toWrite}} > 0}
+        func std.append final {get toWrite}
+    
+    func std.append final {endl}
+
+    write {get toEdit} {get final}
